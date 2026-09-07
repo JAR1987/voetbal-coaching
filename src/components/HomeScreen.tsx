@@ -3,6 +3,7 @@ import type { AuthService } from '../data/authService'
 import type { TeamService } from '../data/teamService'
 import type { SpelerService } from '../data/spelerService'
 import type { WedstrijdService } from '../data/wedstrijdService'
+import type { AanwezigheidService } from '../data/aanwezigheidService'
 import type { Team } from '../data/types'
 import { PlayerListScreen } from './PlayerListScreen'
 import { WedstrijdScreen } from './WedstrijdScreen'
@@ -12,6 +13,7 @@ interface HomeScreenProps {
   teamService: TeamService
   spelerService: SpelerService
   wedstrijdService: WedstrijdService
+  aanwezigheidService: AanwezigheidService
 }
 
 /**
@@ -22,7 +24,13 @@ interface HomeScreenProps {
  * deliberately no team-switcher or team-name editing UI yet, per the
  * ticket.
  */
-export function HomeScreen({ authService, teamService, spelerService, wedstrijdService }: HomeScreenProps) {
+export function HomeScreen({
+  authService,
+  teamService,
+  spelerService,
+  wedstrijdService,
+  aanwezigheidService,
+}: HomeScreenProps) {
   const [team, setTeam] = useState<Team | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -59,7 +67,12 @@ export function HomeScreen({ authService, teamService, spelerService, wedstrijdS
       {team && (
         <>
           <PlayerListScreen spelerService={spelerService} teamId={team.id} />
-          <WedstrijdScreen wedstrijdService={wedstrijdService} teamId={team.id} />
+          <WedstrijdScreen
+            wedstrijdService={wedstrijdService}
+            spelerService={spelerService}
+            aanwezigheidService={aanwezigheidService}
+            teamId={team.id}
+          />
         </>
       )}
 

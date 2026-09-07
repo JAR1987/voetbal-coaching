@@ -9,12 +9,14 @@ import { createTeamService } from './teamService'
 import { createSpelerService } from './spelerService'
 import { createSeizoenService } from './seizoenService'
 import { createWedstrijdService } from './wedstrijdService'
+import { createAanwezigheidService } from './aanwezigheidService'
 
 export const authService = createAuthService(supabase)
 export const teamService = createTeamService(supabase, authService)
 export const spelerService = createSpelerService(supabase, authService)
 export const seizoenService = createSeizoenService(supabase, authService)
 export const wedstrijdService = createWedstrijdService(supabase, authService, seizoenService)
+export const aanwezigheidService = createAanwezigheidService(supabase, authService)
 
 export type { AuthService, SignInCredentials } from './authService'
 export type { TeamService } from './teamService'
@@ -22,6 +24,7 @@ export type { SpelerService, NewSpelerInput, SpelerUpdateInput, ListSpelersOptio
 export type { SeizoenService } from './seizoenService'
 export { deriveSeasonLabel } from './seizoenService'
 export type { WedstrijdService, NewWedstrijdInput } from './wedstrijdService'
+export type { AanwezigheidService, SpelerAanwezigheid } from './aanwezigheidService'
 export type {
   Team,
   Speler,
@@ -31,5 +34,8 @@ export type {
   Formaat,
   Formatie,
   ThuisUit,
+  Aanwezigheid,
+  AanwezigheidStatus,
+  FitheidStatus,
 } from './types'
-export { FORMATIE_OPTIONS, DEFAULT_FORMATIE } from './types'
+export { FORMATIE_OPTIONS, DEFAULT_FORMATIE, FORMAAT_LABELS, FITHEID_OPTIONS, FITHEID_LABELS } from './types'

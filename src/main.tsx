@@ -2,7 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App'
-import { authService, teamService, spelerService, wedstrijdService } from './data'
+import { authService, teamService, spelerService, wedstrijdService, aanwezigheidService } from './data'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -11,6 +11,7 @@ createRoot(document.getElementById('root')!).render(
       teamService={teamService}
       spelerService={spelerService}
       wedstrijdService={wedstrijdService}
+      aanwezigheidService={aanwezigheidService}
     />
   </StrictMode>,
 )

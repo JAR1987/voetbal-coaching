@@ -1,35 +1,43 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import type { WedstrijdService } from '../data/wedstrijdService'
+import type { SpelerService } from '../data/spelerService'
+import type { AanwezigheidService } from '../data/aanwezigheidService'
 import type { Formaat, Formatie, Wedstrijd } from '../data/types'
-import { DEFAULT_FORMATIE, FORMATIE_OPTIONS } from '../data/types'
+import { DEFAULT_FORMATIE, FORMATIE_OPTIONS, FORMAAT_LABELS } from '../data/types'
+import { MatchDetailScreen } from './MatchDetailScreen'
 
 interface WedstrijdScreenProps {
   wedstrijdService: WedstrijdService
+  spelerService: SpelerService
+  aanwezigheidService: AanwezigheidService
   teamId: string
-}
-
-const FORMAAT_LABELS: Record<Formaat, string> = {
-  '8v8': '8-tegen-8',
-  '11v11': '11-tegen-11',
 }
 
 /**
  * Wedstrijdenlijst voor één team: een nieuwe wedstrijd aanmaken (datum +
- * formaat + formatie) en de al aangemaakte wedstrijden zien.
+ * formaat + formatie), de al aangemaakte wedstrijden zien, en er één openen
+ * om het detailscherm te zien (aanwezigheid + fitheid, zie
+ * `MatchDetailScreen`/`AanwezigheidScreen` — ticket "Aanwezigheid +
+ * fitheid-status", jt-dvh.14.4).
  *
  * Het seizoen wordt automatisch bepaald/aangemaakt door wedstrijdService
  * (zie seizoenService.getOrCreateSeasonForDate) — er is bewust geen
- * seizoen-keuze in dit scherm. Wedstrijdgegevens (tegenstander/score/thuis-
- * of-uit) worden hier ook nog niet ingevuld — dat is de latere ticket
- * "Wedstrijdgegevens vastleggen"; dit scherm toont alleen genoeg (datum,
- * formaat, formatie) om te bevestigen dat het aanmaken gelukt is. Een volledig
- * wedstrijd-detailscherm valt buiten deze ticket.
+ * seizoen-keuze in dit scherm.
+ *
+ * Een wedstrijd "openen" is bewust geen router/route: `selectedWedstrijdId`
+ * is gewoon lokale state, en het detailscherm wordt eronder getoond (of in
+ * elk geval niet als aparte pagina) zolang er nog maar één scherm is om naar
+ * terug te keren — zelfde "geen router nodig" filosofie als ticket 1
+ * (zie `App.tsx`). `MatchDetailScreen` beslist zelf wat het detailscherm
+ * laat zien; dit scherm hoeft daar niets van te weten.
  */
-export function WedstrijdScreen({ wedstrijdService, teamId }: WedstrijdScreenProps) {
+export function WedstrijdScreen({ wedstrijdService, spelerService, aanwezigheidService, teamId }: WedstrijdScreenProps) {
   const [wedstrijden, setWedstrijden] = useState<Wedstrijd[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [selectedWedstrijdId, setSelectedWedstrijdId] = useState<string | null>(null)
+  const selectedWedstrijd = wedstrijden.find((wedstrijd) => wedstrijd.id === selectedWedstrijdId) ?? null
 
   const [datum, setDatum] = useState('')
   const [formaat, setFormaat] = useState<Formaat>('8v8')
@@ -56,6 +64,12 @@ export function WedstrijdScreen({ wedstrijdService, teamId }: WedstrijdScreenPro
     // oxlint-disable-next-line react/set-state-in-effect
     loadWedstrijden()
   }, [loadWedstrijden])
+
+  function handleSelectWedstrijd(id: string) {
+    // Toggle: clicking the already-selected match closes its detail view
+    // again, rather than needing a separate close-only affordance for that.
+    setSelectedWedstrijdId((current) => (current === id ? null : id))
+  }
 
   function handleFormaatChange(next: Formaat) {
     setFormaat(next)
@@ -101,10 +115,27 @@ export function WedstrijdScreen({ wedstrijdService, teamId }: WedstrijdScreenPro
         <ul className="wedstrijd-list">
           {wedstrijden.map((wedstrijd) => (
             <li key={wedstrijd.id}>
-              {wedstrijd.datum} — {FORMAAT_LABELS[wedstrijd.formaat]} — {wedstrijd.formatie}
+              <button
+                type="button"
+                className="wedstrijd-list-item"
+                aria-pressed={selectedWedstrijdId === wedstrijd.id}
+                onClick={() => handleSelectWedstrijd(wedstrijd.id)}
+              >
+                {wedstrijd.datum} — {FORMAAT_LABELS[wedstrijd.formaat]} — {wedstrijd.formatie}
+              </button>
             </li>
           ))}
         </ul>
+      )}
+
+      {selectedWedstrijd && (
+        <MatchDetailScreen
+          wedstrijd={selectedWedstrijd}
+          teamId={teamId}
+          spelerService={spelerService}
+          aanwezigheidService={aanwezigheidService}
+          onSluiten={() => setSelectedWedstrijdId(null)}
+        />
       )}
 
       <h3>Nieuwe wedstrijd</h3>

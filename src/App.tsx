@@ -2,6 +2,7 @@ import type { AuthService } from './data/authService'
 import type { TeamService } from './data/teamService'
 import type { SpelerService } from './data/spelerService'
 import type { WedstrijdService } from './data/wedstrijdService'
+import type { AanwezigheidService } from './data/aanwezigheidService'
 import { useSession } from './hooks/useSession'
 import { LoginScreen } from './components/LoginScreen'
 import { HomeScreen } from './components/HomeScreen'
@@ -12,6 +13,7 @@ export interface AppProps {
   teamService: TeamService
   spelerService: SpelerService
   wedstrijdService: WedstrijdService
+  aanwezigheidService: AanwezigheidService
 }
 
 /**
@@ -20,7 +22,7 @@ export interface AppProps {
  * router yet — there's only one real screen so far, later tickets can
  * introduce one once there's somewhere else to navigate to.
  */
-export function App({ authService, teamService, spelerService, wedstrijdService }: AppProps) {
+export function App({ authService, teamService, spelerService, wedstrijdService, aanwezigheidService }: AppProps) {
   const { session, loading } = useSession(authService)
 
   if (loading) {
@@ -37,6 +39,7 @@ export function App({ authService, teamService, spelerService, wedstrijdService 
       teamService={teamService}
       spelerService={spelerService}
       wedstrijdService={wedstrijdService}
+      aanwezigheidService={aanwezigheidService}
     />
   ) : (
     <LoginScreen authService={authService} />

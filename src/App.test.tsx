@@ -5,6 +5,7 @@ import type { AuthService } from './data/authService'
 import type { TeamService } from './data/teamService'
 import type { SpelerService } from './data/spelerService'
 import type { WedstrijdService } from './data/wedstrijdService'
+import type { AanwezigheidService } from './data/aanwezigheidService'
 import { App } from './App'
 
 function fakeAuthService(overrides: Partial<AuthService> = {}): AuthService {
@@ -54,6 +55,20 @@ function fakeWedstrijdService(overrides: Partial<WedstrijdService> = {}): Wedstr
   }
 }
 
+// Only needs to satisfy WedstrijdScreen/AanwezigheidScreen's own mount-time
+// wiring for these App-level tests — aanwezigheidService and the new
+// selectable-match UI each have their own dedicated tests
+// (src/data/__tests__/aanwezigheidService.test.ts,
+// src/components/__tests__/AanwezigheidScreen.test.tsx).
+function fakeAanwezigheidService(overrides: Partial<AanwezigheidService> = {}): AanwezigheidService {
+  return {
+    listForMatch: vi.fn().mockResolvedValue([]),
+    setStatus: vi.fn(),
+    setFitheid: vi.fn(),
+    ...overrides,
+  }
+}
+
 describe('App', () => {
   it('shows the login screen, never the home screen, when logged out', async () => {
     render(
@@ -62,6 +77,7 @@ describe('App', () => {
         teamService={fakeTeamService()}
         spelerService={fakeSpelerService()}
         wedstrijdService={fakeWedstrijdService()}
+        aanwezigheidService={fakeAanwezigheidService()}
       />,
     )
 
@@ -77,6 +93,7 @@ describe('App', () => {
         teamService={fakeTeamService()}
         spelerService={fakeSpelerService()}
         wedstrijdService={fakeWedstrijdService()}
+        aanwezigheidService={fakeAanwezigheidService()}
       />,
     )
 
@@ -100,6 +117,7 @@ describe('App', () => {
         teamService={fakeTeamService()}
         spelerService={fakeSpelerService()}
         wedstrijdService={fakeWedstrijdService()}
+        aanwezigheidService={fakeAanwezigheidService()}
       />,
     )
     expect(await screen.findByRole('button', { name: /inloggen/i })).toBeInTheDocument()

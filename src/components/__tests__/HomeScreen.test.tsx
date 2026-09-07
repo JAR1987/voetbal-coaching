@@ -4,6 +4,7 @@ import type { AuthService } from '../../data/authService'
 import type { TeamService } from '../../data/teamService'
 import type { SpelerService } from '../../data/spelerService'
 import type { WedstrijdService } from '../../data/wedstrijdService'
+import type { AanwezigheidService } from '../../data/aanwezigheidService'
 import { HomeScreen } from '../HomeScreen'
 
 function fakeAuthService(): AuthService {
@@ -36,6 +37,20 @@ function fakeWedstrijdService(overrides: Partial<WedstrijdService> = {}): Wedstr
   }
 }
 
+// Only needs to satisfy WedstrijdScreen's mount-time wiring for these
+// HomeScreen-level tests — aanwezigheidService and the selectable-match UI
+// each have their own dedicated tests
+// (src/data/__tests__/aanwezigheidService.test.ts,
+// src/components/__tests__/AanwezigheidScreen.test.tsx).
+function fakeAanwezigheidService(overrides: Partial<AanwezigheidService> = {}): AanwezigheidService {
+  return {
+    listForMatch: vi.fn().mockResolvedValue([]),
+    setStatus: vi.fn(),
+    setFitheid: vi.fn(),
+    ...overrides,
+  }
+}
+
 describe('HomeScreen', () => {
   it('fetches-or-creates the coach team and renders the player list for it', async () => {
     const teamService: TeamService = {
@@ -56,6 +71,7 @@ describe('HomeScreen', () => {
         teamService={teamService}
         spelerService={spelerService}
         wedstrijdService={wedstrijdService}
+        aanwezigheidService={fakeAanwezigheidService()}
       />,
     )
 
@@ -78,6 +94,7 @@ describe('HomeScreen', () => {
         teamService={teamService}
         spelerService={fakeSpelerService()}
         wedstrijdService={fakeWedstrijdService()}
+        aanwezigheidService={fakeAanwezigheidService()}
       />,
     )
 
