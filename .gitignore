@@ -4,3 +4,32 @@
 *.db
 .beads-credential-key
 .beads/proxieddb/
+
+# Node / web app
+node_modules
+dist
+dist-ssr
+*.local
+.env.local
+.env.*.local
+coverage
+
+# Supabase CLI local state (created by `supabase link` / local dev usage)
+supabase/.branches/
+supabase/.temp/
+
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
