@@ -1,0 +1,151 @@
+import type { SupabaseClient } from '@supabase/supabase-js'
+import type { AuthService } from './authService'
+import type { SeizoenService } from './seizoenService'
+import type { Formaat, Formatie, ThuisUit, Wedstrijd } from './types'
+import { DEFAULT_FORMATIE, FORMATIE_OPTIONS } from './types'
+
+interface WedstrijdRow {
+  id: string
+  seizoen_id: string
+  datum: string
+  formaat: Formaat
+  formatie: Formatie
+  tegenstander: string | null
+  eigen_score: number | null
+  tegen_score: number | null
+  thuis_uit: ThuisUit | null
+  created_at: string
+}
+
+function toWedstrijd(row: WedstrijdRow): Wedstrijd {
+  return {
+    id: row.id,
+    seizoenId: row.seizoen_id,
+    datum: row.datum,
+    formaat: row.formaat,
+    formatie: row.formatie,
+    tegenstander: row.tegenstander,
+    eigenScore: row.eigen_score,
+    tegenScore: row.tegen_score,
+    thuisUit: row.thuis_uit,
+    createdAt: row.created_at,
+  }
+}
+
+export interface NewWedstrijdInput {
+  teamId: string
+  /** `YYYY-MM-DD`. Also what resolves/creates the match's season — see `seizoenService.deriveSeasonLabel`. */
+  datum: string
+  formaat: Formaat
+  /** Defaults to that format's default formation (`DEFAULT_FORMATIE`) when omitted; otherwise must be one of that format's two options (`FORMATIE_OPTIONS`). */
+  formatie?: Formatie
+  /** Optional match-info fields — the UI to fill these in is a later ticket ("Wedstrijdgegevens vastleggen"); default to null. */
+  tegenstander?: string | null
+  eigenScore?: number | null
+  tegenScore?: number | null
+  thuisUit?: ThuisUit | null
+}
+
+export interface WedstrijdService {
+  /** The given team's matches, most recent first. Rejects if there is no active session. */
+  list(teamId: string): Promise<Wedstrijd[]>
+  /**
+   * Creates a match. Only `datum` and `formaat` are required: `formatie`
+   * defaults to that format's default option when omitted, and is
+   * otherwise validated against that format's two allowed options; the
+   * match-info fields (tegenstander/scores/thuis_uit) are optional and
+   * default to null.
+   *
+   * Auto-resolves/creates the match's season via
+   * `seizoenService.getOrCreateSeasonForDate(teamId, datum)` before
+   * inserting — there's deliberately no season picker in the UI, per the
+   * ticket.
+   */
+  create(input: NewWedstrijdInput): Promise<Wedstrijd>
+}
+
+/**
+ * Reads/writes the `wedstrijd` table.
+ *
+ * `wedstrijd` has no `team_id` of its own (it belongs to a `seizoen`, which
+ * belongs to a `team`), so `list` first asks `seizoenService` for the
+ * team's seasons and then queries `wedstrijd` scoped to those season ids.
+ * RLS on `wedstrijd` (see supabase/migrations) independently enforces
+ * ownership via a two-level join (wedstrijd -> seizoen -> team), so this
+ * client-side scoping is a query concern (which team's matches do we want),
+ * not a duplicate of the security check.
+ */
+export function createWedstrijdService(
+  client: SupabaseClient,
+  auth: AuthService,
+  seizoenService: SeizoenService,
+): WedstrijdService {
+  return {
+    async list(teamId) {
+      const session = await auth.getSession()
+      if (!session) {
+        throw new Error('Niet ingelogd: kan geen wedstrijden ophalen.')
+      }
+
+      const seizoenen = await seizoenService.list(teamId)
+      if (seizoenen.length === 0) {
+        return []
+      }
+      const seizoenIds = seizoenen.map((seizoen) => seizoen.id)
+
+      const { data, error } = await client.from('wedstrijd').select('*').in('seizoen_id', seizoenIds)
+      if (error) {
+        throw error
+      }
+      return (data ?? [])
+        .map(toWedstrijd)
+        .sort((a, b) => b.datum.localeCompare(a.datum) || b.createdAt.localeCompare(a.createdAt))
+    },
+
+    async create(input) {
+      const session = await auth.getSession()
+      if (!session) {
+        throw new Error('Niet ingelogd: kan geen wedstrijd aanmaken.')
+      }
+
+      const datum = input.datum?.trim()
+      if (!datum) {
+        throw new Error('Datum is verplicht.')
+      }
+
+      const opties = FORMATIE_OPTIONS[input.formaat]
+      if (!opties) {
+        throw new Error('Ongeldig formaat: kies 8v8 of 11v11.')
+      }
+
+      const formatie = input.formatie ?? DEFAULT_FORMATIE[input.formaat]
+      if (!opties.includes(formatie)) {
+        throw new Error(`Ongeldige formatie voor ${input.formaat}: kies ${opties.join(' of ')}.`)
+      }
+
+      // Auto-resolve/create the season before inserting: every match must
+      // belong to a season (seizoen_id is not-null), and there's no
+      // season-picker in the UI for the coach to do this explicitly.
+      const seizoen = await seizoenService.getOrCreateSeasonForDate(input.teamId, datum)
+
+      const { data, error } = await client
+        .from('wedstrijd')
+        .insert({
+          seizoen_id: seizoen.id,
+          datum,
+          formaat: input.formaat,
+          formatie,
+          tegenstander: input.tegenstander ?? null,
+          eigen_score: input.eigenScore ?? null,
+          tegen_score: input.tegenScore ?? null,
+          thuis_uit: input.thuisUit ?? null,
+        })
+        .select()
+        .single()
+      if (error) {
+        throw error
+      }
+      return toWedstrijd(data)
+    },
+  }
+}

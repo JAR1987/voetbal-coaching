@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react'
 import type { AuthService } from '../../data/authService'
 import type { TeamService } from '../../data/teamService'
 import type { SpelerService } from '../../data/spelerService'
+import type { WedstrijdService } from '../../data/wedstrijdService'
 import { HomeScreen } from '../HomeScreen'
 
 function fakeAuthService(): AuthService {
@@ -24,6 +25,17 @@ function fakeSpelerService(overrides: Partial<SpelerService> = {}): SpelerServic
   }
 }
 
+// Only needs to satisfy WedstrijdScreen's own mount-time list() call for
+// these HomeScreen-level tests — WedstrijdScreen has its own dedicated
+// tests (src/components/__tests__/WedstrijdScreen.test.tsx).
+function fakeWedstrijdService(overrides: Partial<WedstrijdService> = {}): WedstrijdService {
+  return {
+    list: vi.fn().mockResolvedValue([]),
+    create: vi.fn(),
+    ...overrides,
+  }
+}
+
 describe('HomeScreen', () => {
   it('fetches-or-creates the coach team and renders the player list for it', async () => {
     const teamService: TeamService = {
@@ -36,14 +48,22 @@ describe('HomeScreen', () => {
       }),
     }
     const spelerService = fakeSpelerService()
+    const wedstrijdService = fakeWedstrijdService()
 
     render(
-      <HomeScreen authService={fakeAuthService()} teamService={teamService} spelerService={spelerService} />,
+      <HomeScreen
+        authService={fakeAuthService()}
+        teamService={teamService}
+        spelerService={spelerService}
+        wedstrijdService={wedstrijdService}
+      />,
     )
 
     expect(await screen.findByText('Spelers')).toBeInTheDocument()
     expect(teamService.getOrCreateMyTeam).toHaveBeenCalled()
     expect(spelerService.list).toHaveBeenCalledWith('team-9', { includeInactive: false })
+    expect(await screen.findByText('Wedstrijden')).toBeInTheDocument()
+    expect(wedstrijdService.list).toHaveBeenCalledWith('team-9')
   })
 
   it('shows a Dutch error message when the team cannot be fetched or created', async () => {
@@ -57,6 +77,7 @@ describe('HomeScreen', () => {
         authService={fakeAuthService()}
         teamService={teamService}
         spelerService={fakeSpelerService()}
+        wedstrijdService={fakeWedstrijdService()}
       />,
     )
 

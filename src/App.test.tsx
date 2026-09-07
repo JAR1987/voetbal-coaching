@@ -4,6 +4,7 @@ import type { Session } from '@supabase/supabase-js'
 import type { AuthService } from './data/authService'
 import type { TeamService } from './data/teamService'
 import type { SpelerService } from './data/spelerService'
+import type { WedstrijdService } from './data/wedstrijdService'
 import { App } from './App'
 
 function fakeAuthService(overrides: Partial<AuthService> = {}): AuthService {
@@ -42,6 +43,17 @@ function fakeSpelerService(overrides: Partial<SpelerService> = {}): SpelerServic
   }
 }
 
+// Only needs to satisfy WedstrijdScreen's own mount-time list() call for
+// these App-level tests — WedstrijdScreen and wedstrijdService each have
+// their own dedicated tests.
+function fakeWedstrijdService(overrides: Partial<WedstrijdService> = {}): WedstrijdService {
+  return {
+    list: vi.fn().mockResolvedValue([]),
+    create: vi.fn(),
+    ...overrides,
+  }
+}
+
 describe('App', () => {
   it('shows the login screen, never the home screen, when logged out', async () => {
     render(
@@ -49,6 +61,7 @@ describe('App', () => {
         authService={fakeAuthService()}
         teamService={fakeTeamService()}
         spelerService={fakeSpelerService()}
+        wedstrijdService={fakeWedstrijdService()}
       />,
     )
 
@@ -63,6 +76,7 @@ describe('App', () => {
         authService={fakeAuthService({ getSession: vi.fn().mockResolvedValue(session) })}
         teamService={fakeTeamService()}
         spelerService={fakeSpelerService()}
+        wedstrijdService={fakeWedstrijdService()}
       />,
     )
 
@@ -81,7 +95,12 @@ describe('App', () => {
     })
 
     render(
-      <App authService={authService} teamService={fakeTeamService()} spelerService={fakeSpelerService()} />,
+      <App
+        authService={authService}
+        teamService={fakeTeamService()}
+        spelerService={fakeSpelerService()}
+        wedstrijdService={fakeWedstrijdService()}
+      />,
     )
     expect(await screen.findByRole('button', { name: /inloggen/i })).toBeInTheDocument()
 

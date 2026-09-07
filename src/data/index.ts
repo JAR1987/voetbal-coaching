@@ -7,12 +7,29 @@ import { supabase } from '../lib/supabaseClient'
 import { createAuthService } from './authService'
 import { createTeamService } from './teamService'
 import { createSpelerService } from './spelerService'
+import { createSeizoenService } from './seizoenService'
+import { createWedstrijdService } from './wedstrijdService'
 
 export const authService = createAuthService(supabase)
 export const teamService = createTeamService(supabase, authService)
 export const spelerService = createSpelerService(supabase, authService)
+export const seizoenService = createSeizoenService(supabase, authService)
+export const wedstrijdService = createWedstrijdService(supabase, authService, seizoenService)
 
 export type { AuthService, SignInCredentials } from './authService'
 export type { TeamService } from './teamService'
 export type { SpelerService, NewSpelerInput, SpelerUpdateInput, ListSpelersOptions } from './spelerService'
-export type { Team, Speler, SpelerStatus } from './types'
+export type { SeizoenService } from './seizoenService'
+export { deriveSeasonLabel } from './seizoenService'
+export type { WedstrijdService, NewWedstrijdInput } from './wedstrijdService'
+export type {
+  Team,
+  Speler,
+  SpelerStatus,
+  Seizoen,
+  Wedstrijd,
+  Formaat,
+  Formatie,
+  ThuisUit,
+} from './types'
+export { FORMATIE_OPTIONS, DEFAULT_FORMATIE } from './types'

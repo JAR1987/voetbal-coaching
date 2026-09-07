@@ -1,6 +1,7 @@
 import type { AuthService } from './data/authService'
 import type { TeamService } from './data/teamService'
 import type { SpelerService } from './data/spelerService'
+import type { WedstrijdService } from './data/wedstrijdService'
 import { useSession } from './hooks/useSession'
 import { LoginScreen } from './components/LoginScreen'
 import { HomeScreen } from './components/HomeScreen'
@@ -10,15 +11,16 @@ export interface AppProps {
   authService: AuthService
   teamService: TeamService
   spelerService: SpelerService
+  wedstrijdService: WedstrijdService
 }
 
 /**
  * Top-level screen switch: logged-out coaches always see the login screen,
- * logged-in coaches see the home screen (team + player list). No router yet —
- * there's only one real screen so far, later tickets can introduce one once
- * there's somewhere else to navigate to.
+ * logged-in coaches see the home screen (team + player list + matches). No
+ * router yet — there's only one real screen so far, later tickets can
+ * introduce one once there's somewhere else to navigate to.
  */
-export function App({ authService, teamService, spelerService }: AppProps) {
+export function App({ authService, teamService, spelerService, wedstrijdService }: AppProps) {
   const { session, loading } = useSession(authService)
 
   if (loading) {
@@ -30,7 +32,12 @@ export function App({ authService, teamService, spelerService }: AppProps) {
   }
 
   return session ? (
-    <HomeScreen authService={authService} teamService={teamService} spelerService={spelerService} />
+    <HomeScreen
+      authService={authService}
+      teamService={teamService}
+      spelerService={spelerService}
+      wedstrijdService={wedstrijdService}
+    />
   ) : (
     <LoginScreen authService={authService} />
   )
