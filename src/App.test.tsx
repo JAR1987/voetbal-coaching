@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import type { Session } from '@supabase/supabase-js'
 import type { AuthService } from './data/authService'
+import type { TeamService } from './data/teamService'
+import type { SpelerService } from './data/spelerService'
 import { App } from './App'
 
 function fakeAuthService(overrides: Partial<AuthService> = {}): AuthService {
@@ -14,19 +16,57 @@ function fakeAuthService(overrides: Partial<AuthService> = {}): AuthService {
   }
 }
 
+// Team/speler fakes below only need to satisfy HomeScreen's get-or-create-team
+// + player-list wiring for these App-level tests — PlayerListScreen and
+// teamService/spelerService each have their own dedicated tests.
+function fakeTeamService(overrides: Partial<TeamService> = {}): TeamService {
+  return {
+    getMyTeams: vi.fn().mockResolvedValue([]),
+    getOrCreateMyTeam: vi.fn().mockResolvedValue({
+      id: 'team-1',
+      coachUserId: 'coach-1',
+      naam: 'Testteam',
+      createdAt: '2026-01-01T00:00:00Z',
+    }),
+    ...overrides,
+  }
+}
+
+function fakeSpelerService(overrides: Partial<SpelerService> = {}): SpelerService {
+  return {
+    list: vi.fn().mockResolvedValue([]),
+    create: vi.fn(),
+    update: vi.fn(),
+    setStatus: vi.fn(),
+    ...overrides,
+  }
+}
+
 describe('App', () => {
   it('shows the login screen, never the home screen, when logged out', async () => {
-    render(<App authService={fakeAuthService()} />)
+    render(
+      <App
+        authService={fakeAuthService()}
+        teamService={fakeTeamService()}
+        spelerService={fakeSpelerService()}
+      />,
+    )
 
     expect(await screen.findByRole('button', { name: /inloggen/i })).toBeInTheDocument()
-    expect(screen.queryByText(/je bent ingelogd/i)).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /uitloggen/i })).not.toBeInTheDocument()
   })
 
   it('shows the home screen once a session is present', async () => {
     const session = { user: { id: 'coach-1' } } as unknown as Session
-    render(<App authService={fakeAuthService({ getSession: vi.fn().mockResolvedValue(session) })} />)
+    render(
+      <App
+        authService={fakeAuthService({ getSession: vi.fn().mockResolvedValue(session) })}
+        teamService={fakeTeamService()}
+        spelerService={fakeSpelerService()}
+      />,
+    )
 
-    expect(await screen.findByText(/je bent ingelogd/i)).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: /uitloggen/i })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /inloggen/i })).not.toBeInTheDocument()
   })
 
@@ -40,11 +80,13 @@ describe('App', () => {
       }),
     })
 
-    render(<App authService={authService} />)
+    render(
+      <App authService={authService} teamService={fakeTeamService()} spelerService={fakeSpelerService()} />,
+    )
     expect(await screen.findByRole('button', { name: /inloggen/i })).toBeInTheDocument()
 
     emitSessionChange({ user: { id: 'coach-1' } } as unknown as Session)
 
-    expect(await screen.findByText(/je bent ingelogd/i)).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: /uitloggen/i })).toBeInTheDocument()
   })
 })

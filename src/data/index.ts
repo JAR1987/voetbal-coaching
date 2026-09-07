@@ -6,10 +6,13 @@
 import { supabase } from '../lib/supabaseClient'
 import { createAuthService } from './authService'
 import { createTeamService } from './teamService'
+import { createSpelerService } from './spelerService'
 
 export const authService = createAuthService(supabase)
 export const teamService = createTeamService(supabase, authService)
+export const spelerService = createSpelerService(supabase, authService)
 
 export type { AuthService, SignInCredentials } from './authService'
 export type { TeamService } from './teamService'
-export type { Team } from './types'
+export type { SpelerService, NewSpelerInput, SpelerUpdateInput, ListSpelersOptions } from './spelerService'
+export type { Team, Speler, SpelerStatus } from './types'
