@@ -3,6 +3,7 @@ import type { FormEvent } from 'react'
 import type { WedstrijdService } from '../data/wedstrijdService'
 import type { SpelerService } from '../data/spelerService'
 import type { AanwezigheidService } from '../data/aanwezigheidService'
+import type { OpstellingService } from '../data/opstellingService'
 import type { Formaat, Formatie, Wedstrijd } from '../data/types'
 import { DEFAULT_FORMATIE, FORMATIE_OPTIONS, FORMAAT_LABELS } from '../data/types'
 import { MatchDetailScreen } from './MatchDetailScreen'
@@ -11,6 +12,7 @@ interface WedstrijdScreenProps {
   wedstrijdService: WedstrijdService
   spelerService: SpelerService
   aanwezigheidService: AanwezigheidService
+  opstellingService: OpstellingService
   teamId: string
 }
 
@@ -32,7 +34,7 @@ interface WedstrijdScreenProps {
  * (zie `App.tsx`). `MatchDetailScreen` beslist zelf wat het detailscherm
  * laat zien; dit scherm hoeft daar niets van te weten.
  */
-export function WedstrijdScreen({ wedstrijdService, spelerService, aanwezigheidService, teamId }: WedstrijdScreenProps) {
+export function WedstrijdScreen({ wedstrijdService, spelerService, aanwezigheidService, opstellingService, teamId }: WedstrijdScreenProps) {
   const [wedstrijden, setWedstrijden] = useState<Wedstrijd[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -134,6 +136,7 @@ export function WedstrijdScreen({ wedstrijdService, spelerService, aanwezigheidS
           teamId={teamId}
           spelerService={spelerService}
           aanwezigheidService={aanwezigheidService}
+          opstellingService={opstellingService}
           onSluiten={() => setSelectedWedstrijdId(null)}
         />
       )}

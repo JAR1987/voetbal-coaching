@@ -10,6 +10,7 @@ import { createSpelerService } from './spelerService'
 import { createSeizoenService } from './seizoenService'
 import { createWedstrijdService } from './wedstrijdService'
 import { createAanwezigheidService } from './aanwezigheidService'
+import { createOpstellingService } from './opstellingService'
 
 export const authService = createAuthService(supabase)
 export const teamService = createTeamService(supabase, authService)
@@ -17,6 +18,7 @@ export const spelerService = createSpelerService(supabase, authService)
 export const seizoenService = createSeizoenService(supabase, authService)
 export const wedstrijdService = createWedstrijdService(supabase, authService, seizoenService)
 export const aanwezigheidService = createAanwezigheidService(supabase, authService)
+export const opstellingService = createOpstellingService(supabase, authService)
 
 export type { AuthService, SignInCredentials } from './authService'
 export type { TeamService } from './teamService'
@@ -25,6 +27,9 @@ export type { SeizoenService } from './seizoenService'
 export { deriveSeasonLabel } from './seizoenService'
 export type { WedstrijdService, NewWedstrijdInput } from './wedstrijdService'
 export type { AanwezigheidService, SpelerAanwezigheid } from './aanwezigheidService'
+export type { OpstellingService, OpstellingMap } from './opstellingService'
+export type { FormatieSlot } from './formaties'
+export { FORMATIE_SLOTS } from './formaties'
 export type {
   Team,
   Speler,

@@ -6,6 +6,7 @@ import type { TeamService } from './data/teamService'
 import type { SpelerService } from './data/spelerService'
 import type { WedstrijdService } from './data/wedstrijdService'
 import type { AanwezigheidService } from './data/aanwezigheidService'
+import type { OpstellingService } from './data/opstellingService'
 import { App } from './App'
 
 function fakeAuthService(overrides: Partial<AuthService> = {}): AuthService {
@@ -69,6 +70,17 @@ function fakeAanwezigheidService(overrides: Partial<AanwezigheidService> = {}): 
   }
 }
 
+// Only needs to satisfy HomeScreen/WedstrijdScreen's mount-time wiring for
+// these App-level tests — opstellingService has its own dedicated tests
+// (src/data/__tests__/opstellingService.test.ts).
+function fakeOpstellingService(overrides: Partial<OpstellingService> = {}): OpstellingService {
+  return {
+    listForKwart: vi.fn().mockResolvedValue({}),
+    placeSpeler: vi.fn(),
+    ...overrides,
+  }
+}
+
 describe('App', () => {
   it('shows the login screen, never the home screen, when logged out', async () => {
     render(
@@ -78,6 +90,7 @@ describe('App', () => {
         spelerService={fakeSpelerService()}
         wedstrijdService={fakeWedstrijdService()}
         aanwezigheidService={fakeAanwezigheidService()}
+        opstellingService={fakeOpstellingService()}
       />,
     )
 
@@ -94,6 +107,7 @@ describe('App', () => {
         spelerService={fakeSpelerService()}
         wedstrijdService={fakeWedstrijdService()}
         aanwezigheidService={fakeAanwezigheidService()}
+        opstellingService={fakeOpstellingService()}
       />,
     )
 
@@ -118,6 +132,7 @@ describe('App', () => {
         spelerService={fakeSpelerService()}
         wedstrijdService={fakeWedstrijdService()}
         aanwezigheidService={fakeAanwezigheidService()}
+        opstellingService={fakeOpstellingService()}
       />,
     )
     expect(await screen.findByRole('button', { name: /inloggen/i })).toBeInTheDocument()

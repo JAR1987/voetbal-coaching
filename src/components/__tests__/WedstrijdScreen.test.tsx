@@ -6,6 +6,7 @@ import { DEFAULT_FORMATIE } from '../../data/types'
 import type { NewWedstrijdInput, WedstrijdService } from '../../data/wedstrijdService'
 import type { SpelerService } from '../../data/spelerService'
 import type { AanwezigheidService } from '../../data/aanwezigheidService'
+import type { OpstellingService } from '../../data/opstellingService'
 import { WedstrijdScreen } from '../WedstrijdScreen'
 
 /**
@@ -67,6 +68,17 @@ function fakeAanwezigheidService(overrides: Partial<AanwezigheidService> = {}): 
   }
 }
 
+// Only needs to satisfy MatchDetailScreen/OpstellingScreen's mount-time
+// wiring here — the plaatsen/slepen flow has its own dedicated tests
+// (src/data/__tests__/opstellingService.test.ts and its component test).
+function fakeOpstellingService(overrides: Partial<OpstellingService> = {}): OpstellingService {
+  return {
+    listForKwart: vi.fn().mockResolvedValue({}),
+    placeSpeler: vi.fn(),
+    ...overrides,
+  }
+}
+
 describe('WedstrijdScreen', () => {
   it('offers 1-3-3-1 (preselected) and 1-2-3-2 for 8-tegen-8, the default formaat', async () => {
     render(
@@ -74,6 +86,7 @@ describe('WedstrijdScreen', () => {
         wedstrijdService={createFakeWedstrijdService()}
         spelerService={fakeSpelerService()}
         aanwezigheidService={fakeAanwezigheidService()}
+        opstellingService={fakeOpstellingService()}
         teamId="team-1"
       />,
     )
@@ -93,6 +106,7 @@ describe('WedstrijdScreen', () => {
         wedstrijdService={createFakeWedstrijdService()}
         spelerService={fakeSpelerService()}
         aanwezigheidService={fakeAanwezigheidService()}
+        opstellingService={fakeOpstellingService()}
         teamId="team-1"
       />,
     )
@@ -115,6 +129,7 @@ describe('WedstrijdScreen', () => {
         wedstrijdService={wedstrijdService}
         spelerService={fakeSpelerService()}
         aanwezigheidService={fakeAanwezigheidService()}
+        opstellingService={fakeOpstellingService()}
         teamId="team-1"
       />,
     )
@@ -141,6 +156,7 @@ describe('WedstrijdScreen', () => {
         wedstrijdService={wedstrijdService}
         spelerService={fakeSpelerService()}
         aanwezigheidService={fakeAanwezigheidService()}
+        opstellingService={fakeOpstellingService()}
         teamId="team-1"
       />,
     )
@@ -166,6 +182,7 @@ describe('WedstrijdScreen', () => {
         wedstrijdService={createFakeWedstrijdService()}
         spelerService={fakeSpelerService()}
         aanwezigheidService={fakeAanwezigheidService()}
+        opstellingService={fakeOpstellingService()}
         teamId="team-1"
       />,
     )
@@ -221,6 +238,7 @@ describe('WedstrijdScreen — selecting a match', () => {
         wedstrijdService={wedstrijdService}
         spelerService={fakeSpelerService({ list: vi.fn().mockResolvedValue(spelers) })}
         aanwezigheidService={fakeAanwezigheidService()}
+        opstellingService={fakeOpstellingService()}
         teamId="team-1"
       />,
     )
@@ -283,16 +301,20 @@ describe('WedstrijdScreen — selecting a match', () => {
         wedstrijdService={wedstrijdService}
         spelerService={fakeSpelerService({ list: vi.fn().mockResolvedValue(spelers) })}
         aanwezigheidService={aanwezigheidService}
+        opstellingService={fakeOpstellingService()}
         teamId="team-1"
       />,
     )
 
     await user.click(await screen.findByRole('button', { name: /2026-09-20 — 8-tegen-8 — 1-3-3-1/ }))
     await screen.findByText('Aanwezigheid')
+    // Scoped to AanwezigheidScreen: OpstellingScreen's wisselbank (a sibling
+    // section) shows the same player names in its own bench buttons.
+    const aanwezigheid = within(screen.getByText('Aanwezigheid').closest('section')!)
 
     // Both active players default to aanwezig with no action needed.
-    const janRow = (await screen.findByText('Jan Jansen')).closest('li')!
-    const pietRow = screen.getByText('Piet Peters').closest('li')!
+    const janRow = (await aanwezigheid.findByText('Jan Jansen')).closest('li')!
+    const pietRow = aanwezigheid.getByText('Piet Peters').closest('li')!
     expect(janRow).toHaveTextContent('Aanwezig')
     expect(pietRow).toHaveTextContent('Aanwezig')
 

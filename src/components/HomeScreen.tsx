@@ -4,6 +4,7 @@ import type { TeamService } from '../data/teamService'
 import type { SpelerService } from '../data/spelerService'
 import type { WedstrijdService } from '../data/wedstrijdService'
 import type { AanwezigheidService } from '../data/aanwezigheidService'
+import type { OpstellingService } from '../data/opstellingService'
 import type { Team } from '../data/types'
 import { PlayerListScreen } from './PlayerListScreen'
 import { WedstrijdScreen } from './WedstrijdScreen'
@@ -14,6 +15,7 @@ interface HomeScreenProps {
   spelerService: SpelerService
   wedstrijdService: WedstrijdService
   aanwezigheidService: AanwezigheidService
+  opstellingService: OpstellingService
 }
 
 /**
@@ -30,6 +32,7 @@ export function HomeScreen({
   spelerService,
   wedstrijdService,
   aanwezigheidService,
+  opstellingService,
 }: HomeScreenProps) {
   const [team, setTeam] = useState<Team | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -71,6 +74,7 @@ export function HomeScreen({
             wedstrijdService={wedstrijdService}
             spelerService={spelerService}
             aanwezigheidService={aanwezigheidService}
+            opstellingService={opstellingService}
             teamId={team.id}
           />
         </>

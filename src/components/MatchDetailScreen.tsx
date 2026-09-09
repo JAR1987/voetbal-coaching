@@ -1,14 +1,17 @@
 import type { AanwezigheidService } from '../data/aanwezigheidService'
+import type { OpstellingService } from '../data/opstellingService'
 import type { SpelerService } from '../data/spelerService'
 import type { Wedstrijd } from '../data/types'
 import { FORMAAT_LABELS } from '../data/types'
 import { AanwezigheidScreen } from './AanwezigheidScreen'
+import { OpstellingScreen } from './OpstellingScreen'
 
 interface MatchDetailScreenProps {
   wedstrijd: Wedstrijd
   teamId: string
   spelerService: SpelerService
   aanwezigheidService: AanwezigheidService
+  opstellingService: OpstellingService
   onSluiten: () => void
 }
 
@@ -34,6 +37,7 @@ export function MatchDetailScreen({
   teamId,
   spelerService,
   aanwezigheidService,
+  opstellingService,
   onSluiten,
 }: MatchDetailScreenProps) {
   return (
@@ -51,6 +55,14 @@ export function MatchDetailScreen({
         aanwezigheidService={aanwezigheidService}
         spelerService={spelerService}
         wedstrijdId={wedstrijd.id}
+        teamId={teamId}
+      />
+
+      <OpstellingScreen
+        opstellingService={opstellingService}
+        aanwezigheidService={aanwezigheidService}
+        spelerService={spelerService}
+        wedstrijd={wedstrijd}
         teamId={teamId}
       />
 
