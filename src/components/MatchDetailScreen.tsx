@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import type { AanwezigheidService } from '../data/aanwezigheidService'
 import type { OpstellingService } from '../data/opstellingService'
 import type { SpelerService } from '../data/spelerService'
@@ -5,6 +6,8 @@ import type { Wedstrijd } from '../data/types'
 import { FORMAAT_LABELS } from '../data/types'
 import { AanwezigheidScreen } from './AanwezigheidScreen'
 import { OpstellingScreen } from './OpstellingScreen'
+
+const KWARTEN = [1, 2, 3, 4] as const
 
 interface MatchDetailScreenProps {
   wedstrijd: Wedstrijd
@@ -40,6 +43,10 @@ export function MatchDetailScreen({
   opstellingService,
   onSluiten,
 }: MatchDetailScreenProps) {
+  // Owned here, not in OpstellingScreen, so a later ticket (share feature)
+  // can read "which kwart is actief" without reaching into that component.
+  const [kwart, setKwart] = useState<number>(1)
+
   return (
     <section className="match-detail-screen" aria-label="Wedstrijddetail">
       <header className="match-detail-header">
@@ -58,12 +65,28 @@ export function MatchDetailScreen({
         teamId={teamId}
       />
 
+      <div className="kwart-switcher" role="tablist" aria-label="Kwart">
+        {KWARTEN.map((k) => (
+          <button
+            key={k}
+            type="button"
+            role="tab"
+            aria-selected={kwart === k}
+            className={`kwart-tab${kwart === k ? ' actief' : ''}`}
+            onClick={() => setKwart(k)}
+          >
+            K{k}
+          </button>
+        ))}
+      </div>
+
       <OpstellingScreen
         opstellingService={opstellingService}
         aanwezigheidService={aanwezigheidService}
         spelerService={spelerService}
         wedstrijd={wedstrijd}
         teamId={teamId}
+        kwart={kwart}
       />
 
       {/*

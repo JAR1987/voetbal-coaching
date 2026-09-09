@@ -18,6 +18,10 @@ export interface OpstellingService {
    * placement, swaps two occupied positions, or frees the previous
    * occupant back to the wisselbank — derived from one fresh read. */
   placeSpeler(wedstrijdId: string, kwart: number, positie: string, spelerId: string): Promise<void>
+  /** Cumulative speeltijd this season so far: number of `opstelling` rows
+   * per spelerId, across every wedstrijd in `seizoenId`. A speler with no
+   * rows yet is simply absent from the result (treat as 0). */
+  cumulatieveSpeeltijdPerSpeler(seizoenId: string): Promise<Record<string, number>>
 }
 
 export function createOpstellingService(client: SupabaseClient, auth: AuthService): OpstellingService {
@@ -103,6 +107,37 @@ export function createOpstellingService(client: SupabaseClient, auth: AuthServic
       if (insertError) {
         throw insertError
       }
+    },
+
+    async cumulatieveSpeeltijdPerSpeler(seizoenId) {
+      const session = await auth.getSession()
+      if (!session) {
+        throw new Error('Niet ingelogd: kan speeltijd niet ophalen.')
+      }
+
+      const { data: wedstrijden, error: wedstrijdError } = await client
+        .from('wedstrijd')
+        .select('id')
+        .eq('seizoen_id', seizoenId)
+      if (wedstrijdError) {
+        throw wedstrijdError
+      }
+
+      const wedstrijdIds = ((wedstrijden ?? []) as { id: string }[]).map((row) => row.id)
+      if (wedstrijdIds.length === 0) {
+        return {}
+      }
+
+      const { data, error } = await client.from('opstelling').select('speler_id').in('wedstrijd_id', wedstrijdIds)
+      if (error) {
+        throw error
+      }
+
+      const result: Record<string, number> = {}
+      for (const row of (data ?? []) as { speler_id: string }[]) {
+        result[row.speler_id] = (result[row.speler_id] ?? 0) + 1
+      }
+      return result
     },
   }
 }

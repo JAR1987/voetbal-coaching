@@ -169,3 +169,81 @@ describe('opstellingService.placeSpeler', () => {
     await expect(service.placeSpeler('w1', 1, 'Keeper', 's1')).rejects.toThrow(/permission denied/)
   })
 })
+
+describe('opstellingService.cumulatieveSpeeltijdPerSpeler', () => {
+  /** Fake covering `.from('wedstrijd').select('id').eq(...)` then
+   * `.from('opstelling').select('speler_id').in(...)`. */
+  function fakeSpeeltijdClient(wedstrijdIds: string[], opstellingRows: { speler_id: string }[]) {
+    const from = vi.fn((table: string) => {
+      if (table === 'wedstrijd') {
+        return {
+          select: vi.fn(() => ({
+            eq: vi.fn().mockResolvedValue({ data: wedstrijdIds.map((id) => ({ id })), error: null }),
+          })),
+        }
+      }
+      return {
+        select: vi.fn(() => ({
+          in: vi.fn().mockResolvedValue({ data: opstellingRows, error: null }),
+        })),
+      }
+    })
+    return { client: { from } as unknown as SupabaseClient, from }
+  }
+
+  it('rejects and never queries the database when there is no active session', async () => {
+    const { client, from } = fakeSpeeltijdClient([], [])
+    const service = createOpstellingService(client, fakeAuth(null))
+
+    await expect(service.cumulatieveSpeeltijdPerSpeler('seizoen-1')).rejects.toThrow(/niet ingelogd/i)
+    expect(from).not.toHaveBeenCalled()
+  })
+
+  it('returns an empty map without querying opstelling when the season has no matches yet', async () => {
+    const { client, from } = fakeSpeeltijdClient([], [])
+    const service = createOpstellingService(client, fakeAuth(authedSession))
+
+    await expect(service.cumulatieveSpeeltijdPerSpeler('seizoen-1')).resolves.toEqual({})
+    expect(from).toHaveBeenCalledWith('wedstrijd')
+    expect(from).not.toHaveBeenCalledWith('opstelling')
+  })
+
+  it('counts opstelling rows per speler across every wedstrijd in the seizoen', async () => {
+    const { client } = fakeSpeeltijdClient(
+      ['w1', 'w2'],
+      [{ speler_id: 's1' }, { speler_id: 's1' }, { speler_id: 's2' }],
+    )
+    const service = createOpstellingService(client, fakeAuth(authedSession))
+
+    await expect(service.cumulatieveSpeeltijdPerSpeler('seizoen-1')).resolves.toEqual({ s1: 2, s2: 1 })
+  })
+
+  it('surfaces a Postgres/RLS error from the wedstrijd query', async () => {
+    const from = vi.fn(() => ({
+      select: vi.fn(() => ({
+        eq: vi.fn().mockResolvedValue({ data: null, error: new Error('permission denied for table wedstrijd') }),
+      })),
+    }))
+    const client = { from } as unknown as SupabaseClient
+    const service = createOpstellingService(client, fakeAuth(authedSession))
+
+    await expect(service.cumulatieveSpeeltijdPerSpeler('seizoen-1')).rejects.toThrow(/permission denied/)
+  })
+
+  it('surfaces a Postgres/RLS error from the opstelling query', async () => {
+    const from = vi.fn((table: string) => {
+      if (table === 'wedstrijd') {
+        return { select: vi.fn(() => ({ eq: vi.fn().mockResolvedValue({ data: [{ id: 'w1' }], error: null }) })) }
+      }
+      return {
+        select: vi.fn(() => ({
+          in: vi.fn().mockResolvedValue({ data: null, error: new Error('permission denied for table opstelling') }),
+        })),
+      }
+    })
+    const client = { from } as unknown as SupabaseClient
+    const service = createOpstellingService(client, fakeAuth(authedSession))
+
+    await expect(service.cumulatieveSpeeltijdPerSpeler('seizoen-1')).rejects.toThrow(/permission denied/)
+  })
+})
