@@ -5,6 +5,7 @@ import type { SpelerService } from '../data/spelerService'
 import type { Wedstrijd } from '../data/types'
 import { FORMAAT_LABELS } from '../data/types'
 import { AanwezigheidScreen } from './AanwezigheidScreen'
+import { DeelOpstellingKnop } from './DeelOpstellingKnop'
 import { OpstellingScreen } from './OpstellingScreen'
 
 const KWARTEN = [1, 2, 3, 4] as const
@@ -79,6 +80,9 @@ export function MatchDetailScreen({
           </button>
         ))}
       </div>
+
+      {/* Ticket jt-dvh.14.9 "Delen van de opstelling" — own sibling section. */}
+      <DeelOpstellingKnop wedstrijd={wedstrijd} teamId={teamId} kwart={kwart} opstellingService={opstellingService} spelerService={spelerService} />
 
       <OpstellingScreen
         opstellingService={opstellingService}
