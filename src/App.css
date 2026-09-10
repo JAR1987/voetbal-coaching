@@ -59,6 +59,17 @@
   margin: 0;
 }
 
+.build-info {
+  position: fixed;
+  bottom: 0.25rem;
+  right: 0.5rem;
+  margin: 0;
+  font-size: 0.7rem;
+  color: var(--color-border);
+  opacity: 0.6;
+  pointer-events: none;
+}
+
 .home-screen {
   justify-content: flex-start;
   text-align: left;

@@ -35,17 +35,22 @@ export function App({ authService, teamService, spelerService, wedstrijdService,
     )
   }
 
-  return session ? (
-    <HomeScreen
-      authService={authService}
-      teamService={teamService}
-      spelerService={spelerService}
-      wedstrijdService={wedstrijdService}
-      aanwezigheidService={aanwezigheidService}
-      opstellingService={opstellingService}
-    />
-  ) : (
-    <LoginScreen authService={authService} />
+  return (
+    <>
+      {session ? (
+        <HomeScreen
+          authService={authService}
+          teamService={teamService}
+          spelerService={spelerService}
+          wedstrijdService={wedstrijdService}
+          aanwezigheidService={aanwezigheidService}
+          opstellingService={opstellingService}
+        />
+      ) : (
+        <LoginScreen authService={authService} />
+      )}
+      <p className="build-info">v{__APP_VERSION__}</p>
+    </>
   )
 }
 
