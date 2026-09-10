@@ -109,17 +109,24 @@ function maakSpelers(n: number): Speler[] {
   }))
 }
 
-/** A tiny store-backed DataTransfer stand-in — jsdom has no real drag/drop,
- * but fireEvent lets a test supply the same object across dragStart/drop. */
-function createDataTransfer() {
-  const store: Record<string, string> = {}
-  return {
-    setData: (format: string, value: string) => {
-      store[format] = value
-    },
-    getData: (format: string) => store[format] ?? '',
-    effectAllowed: 'move',
-  }
+/** jsdom implementeert geen `PointerEvent` (`window.PointerEvent` is
+ * `undefined`), dus `fireEvent.pointerDown/Move` leveren geen `clientX`/
+ * `clientY` op de event af — nodig voor de sleepdrempel-berekening. Een
+ * `MouseEvent` met hetzelfde `type` triggert React's synthetic-event-
+ * matching (die matcht op `event.type`, niet op de constructor) en draagt
+ * `clientX`/`clientY` wél echt. */
+function firePointerEventWithCoords(target: Element, type: string, clientX: number, clientY: number) {
+  fireEvent(target, new MouseEvent(type, { bubbles: true, cancelable: true, clientX, clientY }))
+}
+
+/** Simulates a real touch drag: touch implicitly captures the pointer to
+ * `bron` (Pointer Events spec), so every event targets `bron`, never `vak` —
+ * hit-testing goes through `elementFromPoint`, mocked here (see jt-dvh.14.15). */
+function sleepSpelerNaarVak(bron: HTMLElement, vak: HTMLElement) {
+  document.elementFromPoint = vi.fn().mockReturnValue(vak)
+  firePointerEventWithCoords(bron, 'pointerdown', 1, 1)
+  firePointerEventWithCoords(bron, 'pointermove', 200, 200)
+  fireEvent.pointerUp(bron, { pointerId: 1, pointerType: 'touch' })
 }
 
 describe('OpstellingScreen', () => {
@@ -225,7 +232,7 @@ describe('OpstellingScreen', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
-  it('places a dragged bench speler onto a slot', async () => {
+  it('places a dragged bench speler onto a slot via a touch pointer', async () => {
     const opstellingService = createFakeOpstellingService(GEEN_AUTO_VOORSTEL)
     render(
       <OpstellingScreen
@@ -240,16 +247,13 @@ describe('OpstellingScreen', () => {
     const benchButton = await screen.findByRole('button', { name: 'Piet Peters' })
     const slot = screen.getByRole('button', { name: 'Linksback: leeg' })
 
-    const dataTransfer = createDataTransfer()
-    fireEvent.dragStart(benchButton, { dataTransfer })
-    fireEvent.dragOver(slot, { dataTransfer })
-    fireEvent.drop(slot, { dataTransfer })
+    sleepSpelerNaarVak(benchButton, slot)
 
     await waitFor(() => expect(opstellingService.placeSpeler).toHaveBeenCalledWith('w1', 1, 'Linksback', 's2'))
     expect(await screen.findByRole('button', { name: 'Linksback: Piet Peters' })).toBeInTheDocument()
   })
 
-  it('swaps two placed spelers when one is dragged onto the other', async () => {
+  it('swaps two placed spelers when one is dragged onto the other via a touch pointer', async () => {
     const opstellingService = createFakeOpstellingService({ 1: { Keeper: 's1', Linksback: 's2' } })
     render(
       <OpstellingScreen
@@ -264,14 +268,123 @@ describe('OpstellingScreen', () => {
     const keeperSlot = await screen.findByRole('button', { name: 'Keeper: Jan Jansen' })
     const linksbackSlot = screen.getByRole('button', { name: 'Linksback: Piet Peters' })
 
-    const dataTransfer = createDataTransfer()
-    fireEvent.dragStart(keeperSlot, { dataTransfer })
-    fireEvent.dragOver(linksbackSlot, { dataTransfer })
-    fireEvent.drop(linksbackSlot, { dataTransfer })
+    sleepSpelerNaarVak(keeperSlot, linksbackSlot)
 
     await waitFor(() => expect(opstellingService.placeSpeler).toHaveBeenCalledWith('w1', 1, 'Linksback', 's1'))
     expect(await screen.findByRole('button', { name: 'Keeper: Piet Peters' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Linksback: Jan Jansen' })).toBeInTheDocument()
+  })
+
+  it('cancels the sleep without placing anyone if the pointer is released over no slot', async () => {
+    const opstellingService = createFakeOpstellingService(GEEN_AUTO_VOORSTEL)
+    render(
+      <OpstellingScreen
+        opstellingService={opstellingService}
+        aanwezigheidService={fakeAanwezigheidService()}
+        spelerService={fakeSpelerService()}
+        wedstrijd={wedstrijd}
+        teamId="team-1"
+        kwart={1}
+      />,
+    )
+    const benchButton = await screen.findByRole('button', { name: 'Piet Peters' })
+    // Vinger beweegt, maar landt boven niets herkenbaars (bv. de rand van het veld).
+    document.elementFromPoint = vi.fn().mockReturnValue(null)
+
+    fireEvent.pointerDown(benchButton, { pointerId: 1, pointerType: 'touch', clientX: 1, clientY: 1 })
+    fireEvent.pointerMove(benchButton, { pointerId: 1, pointerType: 'touch', clientX: 500, clientY: 500 })
+    fireEvent.pointerUp(benchButton, { pointerId: 1, pointerType: 'touch' })
+
+    expect(opstellingService.placeSpeler).not.toHaveBeenCalled()
+  })
+
+  it('does not place a speler back on their own slot for a plain tap with only sub-drempel jitter (regression: jt-dvh.14.15 review finding)', async () => {
+    const opstellingService = createFakeOpstellingService({ 1: { Keeper: 's1' } })
+    render(
+      <OpstellingScreen
+        opstellingService={opstellingService}
+        aanwezigheidService={fakeAanwezigheidService()}
+        spelerService={fakeSpelerService()}
+        wedstrijd={wedstrijd}
+        teamId="team-1"
+        kwart={1}
+      />,
+    )
+    const keeperSlot = await screen.findByRole('button', { name: 'Keeper: Jan Jansen' })
+    // Vinger blijft boven hetzelfde vak "hangen": realistische tik-jitter, geen echte sleep.
+    document.elementFromPoint = vi.fn().mockReturnValue(keeperSlot)
+
+    firePointerEventWithCoords(keeperSlot, 'pointerdown', 100, 100)
+    firePointerEventWithCoords(keeperSlot, 'pointermove', 103, 101) // ~3.16px, ruim onder GHOST_ACTIVATIE_PX
+    fireEvent.pointerUp(keeperSlot, { pointerId: 1, pointerType: 'touch' })
+
+    expect(opstellingService.placeSpeler).not.toHaveBeenCalled()
+
+    // De tik zelf blijft werken: sheet gaat open, geen "laden…"-flits.
+    fireEvent.click(keeperSlot)
+    expect(await screen.findByRole('dialog')).toBeInTheDocument()
+  })
+
+  it('keeps tracking the drop target after the pointer briefly returns near the start point mid-drag', async () => {
+    const opstellingService = createFakeOpstellingService({ 1: { Keeper: 's1', Linksback: 's2' } })
+    render(
+      <OpstellingScreen
+        opstellingService={opstellingService}
+        aanwezigheidService={fakeAanwezigheidService()}
+        spelerService={fakeSpelerService()}
+        wedstrijd={wedstrijd}
+        teamId="team-1"
+        kwart={1}
+      />,
+    )
+    const keeperSlot = await screen.findByRole('button', { name: 'Keeper: Jan Jansen' })
+    const linksbackSlot = screen.getByRole('button', { name: 'Linksback: Piet Peters' })
+    const elementFromPoint = vi.fn()
+    document.elementFromPoint = elementFromPoint
+
+    firePointerEventWithCoords(keeperSlot, 'pointerdown', 1, 1)
+    elementFromPoint.mockReturnValueOnce(null)
+    firePointerEventWithCoords(keeperSlot, 'pointermove', 300, 300) // ruim voorbij de drempel
+    // Overshoot-and-correct: vinger komt terug dicht bij het startpunt — de
+    // sleep moet actief blijven in plaats van te resetten.
+    elementFromPoint.mockReturnValueOnce(keeperSlot)
+    firePointerEventWithCoords(keeperSlot, 'pointermove', 2, 2)
+    elementFromPoint.mockReturnValueOnce(linksbackSlot)
+    firePointerEventWithCoords(keeperSlot, 'pointermove', 500, 500)
+    fireEvent.pointerUp(keeperSlot, { pointerId: 1, pointerType: 'touch' })
+
+    await waitFor(() => expect(opstellingService.placeSpeler).toHaveBeenCalledWith('w1', 1, 'Linksback', 's1'))
+    expect(opstellingService.placeSpeler).toHaveBeenCalledTimes(1)
+  })
+
+  it('disables text selection immediately, but only shows the inert ghost once the drag passes the tap threshold', async () => {
+    render(
+      <OpstellingScreen
+        opstellingService={createFakeOpstellingService(GEEN_AUTO_VOORSTEL)}
+        aanwezigheidService={fakeAanwezigheidService()}
+        spelerService={fakeSpelerService()}
+        wedstrijd={wedstrijd}
+        teamId="team-1"
+        kwart={1}
+      />,
+    )
+    const benchButton = await screen.findByRole('button', { name: 'Piet Peters' })
+    document.elementFromPoint = vi.fn().mockReturnValue(null)
+
+    firePointerEventWithCoords(benchButton, 'pointerdown', 1, 1)
+
+    expect(document.body.style.userSelect).toBe('none')
+    // Nog geen beweging voorbij de drempel: geen ghost, dus geen flits bij een gewone tik.
+    expect(screen.queryByText('Piet Peters', { selector: '.opstelling-drag-ghost' })).not.toBeInTheDocument()
+
+    firePointerEventWithCoords(benchButton, 'pointermove', 200, 200)
+    const ghost = await screen.findByText('Piet Peters', { selector: '.opstelling-drag-ghost' })
+    expect(ghost).toHaveAttribute('inert')
+
+    fireEvent.pointerUp(benchButton, { pointerId: 1, pointerType: 'touch' })
+
+    await waitFor(() => expect(document.body.style.userSelect).toBe(''))
+    expect(screen.queryByText('Piet Peters', { selector: '.opstelling-drag-ghost' })).not.toBeInTheDocument()
   })
 
   it('shows a Dutch error message when the opstelling cannot be fetched', async () => {
@@ -551,13 +664,12 @@ describe('OpstellingScreen — beoordeling per speler/kwart/positie (jt-dvh.14.7
     // Een andere bank-speler wordt op hetzelfde vak gesleept terwijl de
     // sheet nog openstaat — de bezetter verandert onder de sheet vandaan.
     const anderSpeler = screen.getByRole('button', { name: 'Piet Peters' })
-    const dataTransfer = createDataTransfer()
-    fireEvent.dragStart(anderSpeler, { dataTransfer })
-    fireEvent.dragOver(keeperSlot, { dataTransfer })
-    fireEvent.drop(keeperSlot, { dataTransfer })
+    sleepSpelerNaarVak(anderSpeler, keeperSlot)
 
     await waitFor(() => expect(screen.getByRole('button', { name: 'Keeper: Piet Peters' })).toBeInTheDocument())
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    // De sluit-sheet-effect reageert pas op de bezetter-wissel in een eigen
+    // effect-flush ná die render — los blijven wachten voorkomt een race.
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
     expect(opstellingService.setBeoordeling).not.toHaveBeenCalled()
   })
 })
