@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { AanwezigheidService, SpelerAanwezigheid } from '../../data/aanwezigheidService'
-import type { OpstellingMap, OpstellingService } from '../../data/opstellingService'
+import type { BeoordelingMap, OpstellingMap, OpstellingService } from '../../data/opstellingService'
 import type { SpelerService } from '../../data/spelerService'
 import type { Speler, Wedstrijd } from '../../data/types'
 import { OpstellingScreen } from '../OpstellingScreen'
@@ -54,12 +54,17 @@ function fakeAanwezigheidService(afgemeld: string[] = []): AanwezigheidService {
 
 /** In-memory fake mirroring the real service's derivation (own coverage:
  * opstellingService.test.ts). `cumulatieveSpeeltijd` drives the jt-dvh.14.6
- * auto-voorstel ranking for tests that trigger it. */
+ * auto-voorstel ranking for tests that trigger it. `initialBeoordelingen`
+ * seeds jt-dvh.14.7's per-positie score/opmerking, keyed the same way. */
 function createFakeOpstellingService(
   initial: Record<number, OpstellingMap> = {},
   cumulatieveSpeeltijd: Record<string, number> = {},
+  initialBeoordelingen: Record<number, BeoordelingMap> = {},
 ): OpstellingService {
   const perKwart = new Map<number, OpstellingMap>(Object.entries(initial).map(([k, v]) => [Number(k), { ...v }]))
+  const beoordelingenPerKwart = new Map<number, BeoordelingMap>(
+    Object.entries(initialBeoordelingen).map(([k, v]) => [Number(k), { ...v }]),
+  )
 
   return {
     listForKwart: vi.fn(async (_wedstrijdId: string, kwart: number) => ({ ...(perKwart.get(kwart) ?? {}) })),
@@ -75,6 +80,14 @@ function createFakeOpstellingService(
       perKwart.set(kwart, map)
     }),
     cumulatieveSpeeltijdPerSpeler: vi.fn(async () => ({ ...cumulatieveSpeeltijd })),
+    listBeoordelingenForKwart: vi.fn(async (_wedstrijdId: string, kwart: number) => ({
+      ...(beoordelingenPerKwart.get(kwart) ?? {}),
+    })),
+    setBeoordeling: vi.fn(async (_wedstrijdId: string, kwart: number, positie: string, score: number | null, opmerking: string | null) => {
+      const map = { ...(beoordelingenPerKwart.get(kwart) ?? {}) }
+      map[positie] = { score, opmerking }
+      beoordelingenPerKwart.set(kwart, map)
+    }),
   }
 }
 
@@ -190,9 +203,9 @@ describe('OpstellingScreen', () => {
     expect(screen.queryByRole('button', { name: 'Jan Jansen' })).not.toBeInTheDocument()
   })
 
-  it('tapping an occupied slot with no bench selection does nothing (no sheet opens)', async () => {
+  it('tapping an empty slot with no bench selection does nothing (no sheet opens)', async () => {
     const user = userEvent.setup()
-    const opstellingService = createFakeOpstellingService({ 1: { Keeper: 's1' } })
+    const opstellingService = createFakeOpstellingService(GEEN_AUTO_VOORSTEL)
     render(
       <OpstellingScreen
         opstellingService={opstellingService}
@@ -203,12 +216,12 @@ describe('OpstellingScreen', () => {
         kwart={1}
       />,
     )
-    const keeperSlot = await screen.findByRole('button', { name: 'Keeper: Jan Jansen' })
+    const keeperSlot = await screen.findByRole('button', { name: 'Keeper: leeg' })
 
     await user.click(keeperSlot)
 
     expect(opstellingService.placeSpeler).not.toHaveBeenCalled()
-    expect(screen.getByRole('button', { name: 'Keeper: Jan Jansen' })).toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
   it('places a dragged bench speler onto a slot', async () => {
@@ -267,6 +280,8 @@ describe('OpstellingScreen', () => {
           listForKwart: vi.fn().mockRejectedValue(new Error('permission denied for table opstelling')),
           placeSpeler: vi.fn(),
           cumulatieveSpeeltijdPerSpeler: vi.fn(),
+          listBeoordelingenForKwart: vi.fn().mockResolvedValue({}),
+          setBeoordeling: vi.fn(),
         }}
         aanwezigheidService={fakeAanwezigheidService()}
         spelerService={fakeSpelerService()}
@@ -374,6 +389,178 @@ describe('OpstellingScreen — kwart-wisselen en auto-voorstel (jt-dvh.14.6)', (
   })
 })
 
+describe('OpstellingScreen — beoordeling per speler/kwart/positie (jt-dvh.14.7)', () => {
+  it('opent de beoordelingssheet als je een bezet vak tikt zonder bank-selectie', async () => {
+    const user = userEvent.setup()
+    render(
+      <OpstellingScreen
+        opstellingService={createFakeOpstellingService({ 1: { Keeper: 's1' } })}
+        aanwezigheidService={fakeAanwezigheidService()}
+        spelerService={fakeSpelerService()}
+        wedstrijd={wedstrijd}
+        teamId="team-1"
+        kwart={1}
+      />,
+    )
+    const keeperSlot = await screen.findByRole('button', { name: 'Keeper: Jan Jansen' })
+
+    await user.click(keeperSlot)
+
+    expect(await screen.findByRole('dialog')).toBeInTheDocument()
+    expect(screen.getByRole('radiogroup', { name: /score/i })).toBeInTheDocument()
+    expect(screen.getByLabelText('Opmerking')).toBeInTheDocument()
+  })
+
+  it('zet een score van 1-5 sterren en persisteert die op Klaar', async () => {
+    const user = userEvent.setup()
+    const opstellingService = createFakeOpstellingService({ 1: { Keeper: 's1' } })
+    render(
+      <OpstellingScreen
+        opstellingService={opstellingService}
+        aanwezigheidService={fakeAanwezigheidService()}
+        spelerService={fakeSpelerService()}
+        wedstrijd={wedstrijd}
+        teamId="team-1"
+        kwart={1}
+      />,
+    )
+    await user.click(await screen.findByRole('button', { name: 'Keeper: Jan Jansen' }))
+
+    await user.click(screen.getByRole('radio', { name: '4 sterren' }))
+    await user.click(screen.getByRole('button', { name: 'Klaar' }))
+
+    await waitFor(() => expect(opstellingService.setBeoordeling).toHaveBeenCalledWith('w1', 1, 'Keeper', 4, null))
+    expect(await screen.findByText('★4')).toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('voegt een vrije opmerking toe naast de score en persisteert die op Klaar', async () => {
+    const user = userEvent.setup()
+    const opstellingService = createFakeOpstellingService({ 1: { Keeper: 's1' } })
+    render(
+      <OpstellingScreen
+        opstellingService={opstellingService}
+        aanwezigheidService={fakeAanwezigheidService()}
+        spelerService={fakeSpelerService()}
+        wedstrijd={wedstrijd}
+        teamId="team-1"
+        kwart={1}
+      />,
+    )
+    await user.click(await screen.findByRole('button', { name: 'Keeper: Jan Jansen' }))
+
+    await user.type(screen.getByLabelText('Opmerking'), 'Sterk kwart gespeeld')
+    await user.click(screen.getByRole('button', { name: 'Klaar' }))
+
+    await waitFor(() =>
+      expect(opstellingService.setBeoordeling).toHaveBeenCalledWith('w1', 1, 'Keeper', null, 'Sterk kwart gespeeld'),
+    )
+  })
+
+  it('score en opmerking zijn optioneel: sluiten zonder iets in te vullen geeft geen fout', async () => {
+    const user = userEvent.setup()
+    const opstellingService = createFakeOpstellingService({ 1: { Keeper: 's1' } })
+    render(
+      <OpstellingScreen
+        opstellingService={opstellingService}
+        aanwezigheidService={fakeAanwezigheidService()}
+        spelerService={fakeSpelerService()}
+        wedstrijd={wedstrijd}
+        teamId="team-1"
+        kwart={1}
+      />,
+    )
+    await user.click(await screen.findByRole('button', { name: 'Keeper: Jan Jansen' }))
+
+    await user.click(screen.getByRole('button', { name: 'Klaar' }))
+
+    await waitFor(() => expect(opstellingService.setBeoordeling).toHaveBeenCalledWith('w1', 1, 'Keeper', null, null))
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('toont de bestaande score en opmerking opnieuw als je een al beoordeeld vak weer opent', async () => {
+    const user = userEvent.setup()
+    const opstellingService = createFakeOpstellingService(
+      { 1: { Keeper: 's1' } },
+      {},
+      { 1: { Keeper: { score: 3, opmerking: 'Prima duels gewonnen' } } },
+    )
+    render(
+      <OpstellingScreen
+        opstellingService={opstellingService}
+        aanwezigheidService={fakeAanwezigheidService()}
+        spelerService={fakeSpelerService()}
+        wedstrijd={wedstrijd}
+        teamId="team-1"
+        kwart={1}
+      />,
+    )
+    expect(await screen.findByText('★3')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Keeper: Jan Jansen' }))
+
+    expect(screen.getByRole('radio', { name: '3 sterren' })).toHaveAttribute('aria-checked', 'true')
+    expect(screen.getByLabelText('Opmerking')).toHaveValue('Prima duels gewonnen')
+  })
+
+  it('bewaart een nog niet op Klaar bevestigde score/opmerking als hetzelfde vak nogmaals wordt getikt', async () => {
+    const user = userEvent.setup()
+    const opstellingService = createFakeOpstellingService({ 1: { Keeper: 's1' } })
+    render(
+      <OpstellingScreen
+        opstellingService={opstellingService}
+        aanwezigheidService={fakeAanwezigheidService()}
+        spelerService={fakeSpelerService()}
+        wedstrijd={wedstrijd}
+        teamId="team-1"
+        kwart={1}
+      />,
+    )
+    const keeperSlot = await screen.findByRole('button', { name: 'Keeper: Jan Jansen' })
+    await user.click(keeperSlot)
+    await user.click(screen.getByRole('radio', { name: '5 sterren' }))
+    await user.type(screen.getByLabelText('Opmerking'), 'Voorlopige notitie')
+
+    await user.click(keeperSlot)
+
+    expect(screen.getByRole('radio', { name: '5 sterren' })).toHaveAttribute('aria-checked', 'true')
+    expect(screen.getByLabelText('Opmerking')).toHaveValue('Voorlopige notitie')
+    expect(opstellingService.setBeoordeling).not.toHaveBeenCalled()
+  })
+
+  it('sluit de sheet automatisch als de bezetting van het vak verandert terwijl hij open staat', async () => {
+    const user = userEvent.setup()
+    const opstellingService = createFakeOpstellingService({ 1: { Keeper: 's1' } })
+    render(
+      <OpstellingScreen
+        opstellingService={opstellingService}
+        aanwezigheidService={fakeAanwezigheidService()}
+        spelerService={fakeSpelerService()}
+        wedstrijd={wedstrijd}
+        teamId="team-1"
+        kwart={1}
+      />,
+    )
+    const keeperSlot = await screen.findByRole('button', { name: 'Keeper: Jan Jansen' })
+    await user.click(keeperSlot)
+    expect(await screen.findByRole('dialog')).toBeInTheDocument()
+    await user.click(screen.getByRole('radio', { name: '5 sterren' }))
+
+    // Een andere bank-speler wordt op hetzelfde vak gesleept terwijl de
+    // sheet nog openstaat — de bezetter verandert onder de sheet vandaan.
+    const anderSpeler = screen.getByRole('button', { name: 'Piet Peters' })
+    const dataTransfer = createDataTransfer()
+    fireEvent.dragStart(anderSpeler, { dataTransfer })
+    fireEvent.dragOver(keeperSlot, { dataTransfer })
+    fireEvent.drop(keeperSlot, { dataTransfer })
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Keeper: Piet Peters' })).toBeInTheDocument())
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(opstellingService.setBeoordeling).not.toHaveBeenCalled()
+  })
+})
+
 describe('OpstellingScreen — dubbele effect-invocatie (StrictMode)', () => {
   it('genereert en persisteert het voorstel maar één keer als load() twee keer overlapt', async () => {
     // Een handmatig bestuurde gate i.p.v. een timer: garandeert dat béíde
@@ -393,6 +580,8 @@ describe('OpstellingScreen — dubbele effect-invocatie (StrictMode)', () => {
       listForKwart,
       placeSpeler,
       cumulatieveSpeeltijdPerSpeler: vi.fn().mockResolvedValue({ s1: 5, s2: 0, s3: 2 }),
+      listBeoordelingenForKwart: vi.fn().mockResolvedValue({}),
+      setBeoordeling: vi.fn(),
     }
 
     render(

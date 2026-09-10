@@ -247,3 +247,119 @@ describe('opstellingService.cumulatieveSpeeltijdPerSpeler', () => {
     await expect(service.cumulatieveSpeeltijdPerSpeler('seizoen-1')).rejects.toThrow(/permission denied/)
   })
 })
+
+describe('opstellingService.listBeoordelingenForKwart', () => {
+  /** Fake covering `.from('opstelling').select('positie, score, opmerking').eq(...).eq(...)`. */
+  function fakeBeoordelingReadClient(rows: { positie: string; score: number | null; opmerking: string | null }[]) {
+    const from = vi.fn(() => ({
+      select: vi.fn(() => ({
+        eq: vi.fn(() => ({
+          eq: vi.fn().mockResolvedValue({ data: rows, error: null }),
+        })),
+      })),
+    }))
+    return { client: { from } as unknown as SupabaseClient, from }
+  }
+
+  it('rejects and never queries the database when there is no active session', async () => {
+    const { client, from } = fakeBeoordelingReadClient([])
+    const service = createOpstellingService(client, fakeAuth(null))
+
+    await expect(service.listBeoordelingenForKwart('w1', 1)).rejects.toThrow(/niet ingelogd/i)
+    expect(from).not.toHaveBeenCalled()
+  })
+
+  it('returns a { positie: { score, opmerking } } map, one entry per rated row', async () => {
+    const { client } = fakeBeoordelingReadClient([
+      { positie: 'Keeper', score: 4, opmerking: 'Sterk kwart' },
+      { positie: 'Linksback', score: null, opmerking: null },
+    ])
+    const service = createOpstellingService(client, fakeAuth(authedSession))
+
+    await expect(service.listBeoordelingenForKwart('w1', 1)).resolves.toEqual({
+      Keeper: { score: 4, opmerking: 'Sterk kwart' },
+      Linksback: { score: null, opmerking: null },
+    })
+  })
+
+  it('surfaces a Postgres/RLS error instead of silently returning an empty map', async () => {
+    const from = vi.fn(() => ({
+      select: vi.fn(() => ({
+        eq: vi.fn(() => ({
+          eq: vi.fn().mockResolvedValue({ data: null, error: new Error('permission denied for table opstelling') }),
+        })),
+      })),
+    }))
+    const client = { from } as unknown as SupabaseClient
+    const service = createOpstellingService(client, fakeAuth(authedSession))
+
+    await expect(service.listBeoordelingenForKwart('w1', 1)).rejects.toThrow(/permission denied/)
+  })
+})
+
+describe('opstellingService.setBeoordeling', () => {
+  interface UpdateChain {
+    eq: (col: string, val: unknown) => UpdateChain
+    then: (resolve: (value: { error: Error | null }) => void) => void
+  }
+
+  /** Fake covering `.from('opstelling').update(patch).eq(...).eq(...).eq(...)`
+   * — records the patch and every `.eq(column, value)` filter applied to it. */
+  function fakeUpdateClient(error: Error | null = null) {
+    const calls: { patch: Record<string, unknown>; filters: Record<string, unknown> }[] = []
+    const from = vi.fn(() => ({
+      update: vi.fn((patch: Record<string, unknown>) => {
+        const filters: Record<string, unknown> = {}
+        const chain: UpdateChain = {
+          eq: (col, val) => {
+            filters[col] = val
+            return chain
+          },
+          then: (resolve) => {
+            calls.push({ patch, filters: { ...filters } })
+            resolve({ error })
+          },
+        }
+        return chain
+      }),
+    }))
+    return { client: { from } as unknown as SupabaseClient, from, calls }
+  }
+
+  it('rejects and never queries the database when there is no active session', async () => {
+    const { client, from } = fakeUpdateClient()
+    const service = createOpstellingService(client, fakeAuth(null))
+
+    await expect(service.setBeoordeling('w1', 1, 'Keeper', 4, 'Sterk')).rejects.toThrow(/niet ingelogd/i)
+    expect(from).not.toHaveBeenCalled()
+  })
+
+  it('updates score and opmerking on the row matched by wedstrijd_id/kwart/positie', async () => {
+    const { client, calls } = fakeUpdateClient()
+    const service = createOpstellingService(client, fakeAuth(authedSession))
+
+    await service.setBeoordeling('w1', 1, 'Keeper', 4, 'Sterk kwart')
+
+    expect(calls).toEqual([
+      { patch: { score: 4, opmerking: 'Sterk kwart' }, filters: { wedstrijd_id: 'w1', kwart: 1, positie: 'Keeper' } },
+    ])
+  })
+
+  it('accepts a null score and/or opmerking — both are optional', async () => {
+    const { client, calls } = fakeUpdateClient()
+    const service = createOpstellingService(client, fakeAuth(authedSession))
+
+    await service.setBeoordeling('w1', 1, 'Keeper', null, null)
+
+    expect(calls).toEqual([
+      { patch: { score: null, opmerking: null }, filters: { wedstrijd_id: 'w1', kwart: 1, positie: 'Keeper' } },
+    ])
+  })
+
+  it('surfaces a Postgres/RLS error instead of silently succeeding', async () => {
+    const { client } = fakeUpdateClient(new Error('permission denied for table opstelling'))
+    const service = createOpstellingService(client, fakeAuth(authedSession))
+
+    await expect(service.setBeoordeling('w1', 1, 'Keeper', 4, null)).rejects.toThrow(/permission denied/)
+  })
+})

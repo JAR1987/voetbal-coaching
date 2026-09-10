@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { DragEvent } from 'react'
 import type { AanwezigheidService } from '../data/aanwezigheidService'
 import { FORMATIE_SLOTS } from '../data/formaties'
-import type { OpstellingMap, OpstellingService } from '../data/opstellingService'
+import type { Beoordeling, BeoordelingMap, OpstellingMap, OpstellingService } from '../data/opstellingService'
 import type { SpelerService } from '../data/spelerService'
 import type { Speler, Wedstrijd } from '../data/types'
 import { genereerWisselvoorstel } from '../data/wisselAlgoritme'
@@ -23,7 +23,16 @@ interface OpstellingScreenProps {
 export function OpstellingScreen({ opstellingService, aanwezigheidService, spelerService, wedstrijd, teamId, kwart }: OpstellingScreenProps) {
   const [aanwezig, setAanwezig] = useState<Speler[]>([])
   const [opstellingPerKwart, setOpstellingPerKwart] = useState<Record<number, OpstellingMap>>({})
+  const [beoordelingenPerKwart, setBeoordelingenPerKwart] = useState<Record<number, BeoordelingMap>>({})
   const [selectedBenchSpelerId, setSelectedBenchSpelerId] = useState<string | null>(null)
+  // Welke positie's beoordelingssheet open staat (ticket .7); null = gesloten.
+  const [beoordeelPositie, setBeoordeelPositie] = useState<string | null>(null)
+  // SpelerId die bezette positie had toen de sheet openging — bewaakt tegen
+  // een plaatsing/wissel elders die diezelfde positie tijdens het bewerken
+  // van bezetter wisselt (zie effect hieronder).
+  const [beoordeelSpelerId, setBeoordeelSpelerId] = useState<string | null>(null)
+  const [scoreBuffer, setScoreBuffer] = useState<number | null>(null)
+  const [opmerkingBuffer, setOpmerkingBuffer] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   // Kwarten met een voorstel al onderweg — voorkomt dat een dubbele `load()`
@@ -42,7 +51,11 @@ export function OpstellingScreen({ opstellingService, aanwezigheidService, spele
       const regels = await aanwezigheidService.listForMatch(wedstrijd.id, spelers)
       const aanwezigeSpelers = regels.filter((regel) => regel.status === 'aanwezig').map((regel) => regel.speler)
 
-      let map = await opstellingService.listForKwart(wedstrijd.id, kwart)
+      const [initialMap, beoordelingen] = await Promise.all([
+        opstellingService.listForKwart(wedstrijd.id, kwart),
+        opstellingService.listBeoordelingenForKwart(wedstrijd.id, kwart),
+      ])
+      let map = initialMap
       if (Object.keys(map).length === 0 && !voorstelInVlucht.current.has(kwart)) {
         voorstelInVlucht.current.add(kwart)
         try {
@@ -67,6 +80,7 @@ export function OpstellingScreen({ opstellingService, aanwezigheidService, spele
 
       setAanwezig(aanwezigeSpelers)
       setOpstellingPerKwart((prev) => ({ ...prev, [kwart]: map }))
+      setBeoordelingenPerKwart((prev) => ({ ...prev, [kwart]: beoordelingen }))
     } catch {
       setError('Opstelling ophalen is niet gelukt.')
     } finally {
@@ -81,8 +95,33 @@ export function OpstellingScreen({ opstellingService, aanwezigheidService, spele
     load()
   }, [load])
 
+  useEffect(() => {
+    // oxlint-disable-next-line react/set-state-in-effect
+    setBeoordeelPositie(null)
+    // oxlint-disable-next-line react/set-state-in-effect
+    setBeoordeelSpelerId(null)
+  }, [kwart])
+
   const slots = FORMATIE_SLOTS[wedstrijd.formatie]
   const opstelling = opstellingPerKwart[kwart] ?? {}
+  const beoordelingen = beoordelingenPerKwart[kwart] ?? {}
+
+  // Primitive, niet het hele `opstelling`-object: anders triggert de effect
+  // hieronder op elke render (nieuwe object-referentie na elke `load()`).
+  const huidigeBezetter = beoordeelPositie ? opstelling[beoordeelPositie] : undefined
+
+  useEffect(() => {
+    // Bewaakt tegen een plaatsing/wissel elders die de bezetter van
+    // `beoordeelPositie` verandert terwijl de sheet nog open staat (bv. een
+    // sleep-actie op hetzelfde vak) — anders zou "Klaar" de nog-gebufferde
+    // score/opmerking op de nieuwe bezetter plakken. Sluit dan gewoon de
+    // sheet; de coach opent 'm opnieuw voor de juiste speler.
+    if (beoordeelPositie && huidigeBezetter !== beoordeelSpelerId) {
+      // oxlint-disable-next-line react/set-state-in-effect
+      setBeoordeelPositie(null)
+    }
+  }, [huidigeBezetter, beoordeelPositie, beoordeelSpelerId])
+
   // Een rij op een positie die niet bij deze formatie hoort (bv. een
   // afgebroken swap-tussenstap in placeSpeler) telt niet als "geplaatst" —
   // de speler valt dan terug op de wisselbank i.p.v. te verdwijnen.
@@ -108,19 +147,55 @@ export function OpstellingScreen({ opstellingService, aanwezigheidService, spele
   }
 
   /** Tikken op een vak: met bank-selectie plaatst dit die speler. Zonder
-   * selectie op een bezet vak: ticket .7 opent hier straks een
-   * beoordelingssheet — voor dit ticket doet die tak niets. */
+   * selectie op een bezet vak opent dit de beoordelingssheet (ticket .7);
+   * op een leeg vak gebeurt er niets. */
   function handleSlotTap(positie: string) {
     if (selectedBenchSpelerId) {
       void plaatsSpeler(positie, selectedBenchSpelerId)
       setSelectedBenchSpelerId(null)
       return
     }
-    handleOccupiedSlotTapWithoutSelection()
+    handleOccupiedSlotTapWithoutSelection(positie)
   }
 
-  function handleOccupiedSlotTapWithoutSelection() {
+  function handleOccupiedSlotTapWithoutSelection(positie: string) {
     setSelectedBenchSpelerId(null)
+    // Al open op dit vak: niet opnieuw initialiseren, anders verdwijnt een
+    // nog niet op "Klaar" bevestigde score/opmerking bij een dubbele tik.
+    if (positie === beoordeelPositie) {
+      return
+    }
+    const spelerId = opstelling[positie]
+    if (!spelerId) {
+      return
+    }
+    const bestaande: Beoordeling | undefined = beoordelingen[positie]
+    setBeoordeelPositie(positie)
+    setBeoordeelSpelerId(spelerId)
+    setScoreBuffer(bestaande?.score ?? null)
+    setOpmerkingBuffer(bestaande?.opmerking ?? '')
+  }
+
+  /** Sluit de beoordelingssheet: persisteert score/opmerking (beide
+   * optioneel) op de bestaande opstelling-rij en herlaadt daarna, zodat het
+   * on-pitch sterretje en een volgende keer openen de nieuwe waarde tonen. */
+  async function handleBeoordelingKlaar() {
+    if (!beoordeelPositie) {
+      return
+    }
+    try {
+      await opstellingService.setBeoordeling(
+        wedstrijd.id,
+        kwart,
+        beoordeelPositie,
+        scoreBuffer,
+        opmerkingBuffer.trim() === '' ? null : opmerkingBuffer,
+      )
+      setBeoordeelPositie(null)
+      await load()
+    } catch {
+      setError('Beoordeling opslaan is niet gelukt.')
+    }
   }
 
   function handleDragStart(event: DragEvent<HTMLElement>, spelerId: string) {
@@ -157,6 +232,7 @@ export function OpstellingScreen({ opstellingService, aanwezigheidService, spele
           <div className="opstelling-veld">
             {slots.map((slot) => {
               const speler = vindSpeler(opstelling[slot.naam])
+              const score = beoordelingen[slot.naam]?.score
               return (
                 <button
                   key={slot.id}
@@ -172,6 +248,7 @@ export function OpstellingScreen({ opstellingService, aanwezigheidService, spele
                 >
                   <span className="opstelling-vak-positie">{slot.naam}</span>
                   <span className="opstelling-vak-naam">{speler ? speler.naam : '—'}</span>
+                  {score ? <span className="opstelling-vak-score">★{score}</span> : null}
                 </button>
               )
             })}
@@ -195,6 +272,38 @@ export function OpstellingScreen({ opstellingService, aanwezigheidService, spele
               ))}
             </ul>
           </div>
+
+          {beoordeelPositie && (
+            <div className="opstelling-beoordeling-sheet" role="dialog" aria-label={`Beoordeling ${beoordeelPositie}`}>
+              <h5>Beoordeling — {vindSpeler(opstelling[beoordeelPositie])?.naam ?? beoordeelPositie}</h5>
+
+              <div role="radiogroup" aria-label="Score (1-5 sterren)">
+                {[1, 2, 3, 4, 5].map((ster) => (
+                  <button
+                    key={ster}
+                    type="button"
+                    role="radio"
+                    aria-checked={scoreBuffer === ster}
+                    aria-label={ster === 1 ? '1 ster' : `${ster} sterren`}
+                    onClick={() => setScoreBuffer(ster)}
+                  >
+                    {scoreBuffer !== null && ster <= scoreBuffer ? '★' : '☆'}
+                  </button>
+                ))}
+              </div>
+
+              <label htmlFor="opstelling-beoordeling-opmerking">Opmerking</label>
+              <textarea
+                id="opstelling-beoordeling-opmerking"
+                value={opmerkingBuffer}
+                onChange={(event) => setOpmerkingBuffer(event.target.value)}
+              />
+
+              <button type="button" onClick={() => void handleBeoordelingKlaar()}>
+                Klaar
+              </button>
+            </div>
+          )}
         </>
       )}
     </section>

@@ -60,6 +60,8 @@ function fakeOpstellingService(overrides: Partial<OpstellingService> = {}): Opst
     listForKwart: vi.fn().mockResolvedValue({}),
     placeSpeler: vi.fn(),
     cumulatieveSpeeltijdPerSpeler: vi.fn().mockResolvedValue({}),
+    listBeoordelingenForKwart: vi.fn().mockResolvedValue({}),
+    setBeoordeling: vi.fn(),
     ...overrides,
   }
 }

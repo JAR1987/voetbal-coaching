@@ -52,6 +52,8 @@ function fakeOpstellingService(): OpstellingService {
     listForKwart: vi.fn(async (_wedstrijdId: string, kwart: number) => ({ ...(perKwart[kwart] ?? {}) })),
     placeSpeler: vi.fn(),
     cumulatieveSpeeltijdPerSpeler: vi.fn().mockResolvedValue({}),
+    listBeoordelingenForKwart: vi.fn().mockResolvedValue({}),
+    setBeoordeling: vi.fn(),
   }
 }
 
