@@ -61,5 +61,9 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/test/setup.ts'],
+    // Default excludes plus .claude/worktrees/ — otherwise running from the
+    // repo root also picks up every parallel git worktree's copy of every
+    // test file.
+    exclude: ['**/node_modules/**', '**/dist/**', '**/.claude/**'],
   },
 })
