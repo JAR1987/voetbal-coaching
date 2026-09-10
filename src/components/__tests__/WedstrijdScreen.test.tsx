@@ -35,11 +35,13 @@ function createFakeWedstrijdService(): WedstrijdService {
         eigenScore: input.eigenScore ?? null,
         tegenScore: input.tegenScore ?? null,
         thuisUit: input.thuisUit ?? null,
+        kwartDuurSeconden: 1200,
         createdAt: '2026-01-01T00:00:00Z',
       }
       byTeam.set(input.teamId, [...(byTeam.get(input.teamId) ?? []), wedstrijd])
       return wedstrijd
     }),
+    updateKwartDuur: vi.fn(),
   }
 }
 
@@ -227,6 +229,7 @@ describe('WedstrijdScreen — selecting a match', () => {
     eigenScore: null,
     tegenScore: null,
     thuisUit: null,
+    kwartDuurSeconden: 1200,
     createdAt: '2026-01-01T00:00:00Z',
   }
 
@@ -235,6 +238,7 @@ describe('WedstrijdScreen — selecting a match', () => {
     const wedstrijdService: WedstrijdService = {
       list: vi.fn().mockResolvedValue([bestaandeWedstrijd]),
       create: vi.fn(),
+      updateKwartDuur: vi.fn(),
     }
     render(
       <WedstrijdScreen
@@ -261,6 +265,7 @@ describe('WedstrijdScreen — selecting a match', () => {
     const wedstrijdService: WedstrijdService = {
       list: vi.fn().mockResolvedValue([bestaandeWedstrijd]),
       create: vi.fn(),
+      updateKwartDuur: vi.fn(),
     }
 
     // A small in-memory fake, like the other component tests use — real

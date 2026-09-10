@@ -3,9 +3,11 @@ import type { AanwezigheidService } from '../data/aanwezigheidService'
 import type { OpstellingService } from '../data/opstellingService'
 import type { SpelerService } from '../data/spelerService'
 import type { Wedstrijd } from '../data/types'
+import type { WedstrijdService } from '../data/wedstrijdService'
 import { FORMAAT_LABELS } from '../data/types'
 import { AanwezigheidScreen } from './AanwezigheidScreen'
 import { DeelOpstellingKnop } from './DeelOpstellingKnop'
+import { KwartTimer } from './KwartTimer'
 import { OpstellingScreen } from './OpstellingScreen'
 
 const KWARTEN = [1, 2, 3, 4] as const
@@ -16,6 +18,7 @@ interface MatchDetailScreenProps {
   spelerService: SpelerService
   aanwezigheidService: AanwezigheidService
   opstellingService: OpstellingService
+  wedstrijdService: WedstrijdService
   onSluiten: () => void
 }
 
@@ -42,6 +45,7 @@ export function MatchDetailScreen({
   spelerService,
   aanwezigheidService,
   opstellingService,
+  wedstrijdService,
   onSluiten,
 }: MatchDetailScreenProps) {
   // Owned here, not in OpstellingScreen, so a later ticket (share feature)
@@ -58,6 +62,8 @@ export function MatchDetailScreen({
           {wedstrijd.datum} — {FORMAAT_LABELS[wedstrijd.formaat]} — {wedstrijd.formatie}
         </h3>
       </header>
+
+      <KwartTimer wedstrijd={wedstrijd} wedstrijdService={wedstrijdService} />
 
       <AanwezigheidScreen
         aanwezigheidService={aanwezigheidService}

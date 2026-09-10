@@ -99,6 +99,8 @@ export interface Wedstrijd {
   eigenScore: number | null
   tegenScore: number | null
   thuisUit: ThuisUit | null
+  /** Standaardduur van een kwart in seconden voor deze wedstrijd (default 1200 = 20 min). */
+  kwartDuurSeconden: number
   createdAt: string
 }
 

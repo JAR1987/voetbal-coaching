@@ -19,6 +19,7 @@ const wedstrijd: Wedstrijd = {
   eigenScore: null,
   tegenScore: null,
   thuisUit: null,
+  kwartDuurSeconden: 1200,
   createdAt: '2026-01-01T00:00:00Z',
 }
 
@@ -51,6 +52,8 @@ function fakeOpstellingService(perKwart: Record<number, OpstellingMap>): Opstell
     listForKwart: vi.fn(async (_wedstrijdId: string, kwart: number) => perKwart[kwart] ?? {}),
     placeSpeler: vi.fn(),
     cumulatieveSpeeltijdPerSpeler: vi.fn(),
+    listBeoordelingenForKwart: vi.fn().mockResolvedValue({}),
+    setBeoordeling: vi.fn(),
   }
 }
 

@@ -14,6 +14,7 @@ interface WedstrijdRow {
   eigen_score: number | null
   tegen_score: number | null
   thuis_uit: ThuisUit | null
+  kwart_duur_seconden: number
   created_at: string
 }
 
@@ -28,6 +29,7 @@ function toWedstrijd(row: WedstrijdRow): Wedstrijd {
     eigenScore: row.eigen_score,
     tegenScore: row.tegen_score,
     thuisUit: row.thuis_uit,
+    kwartDuurSeconden: row.kwart_duur_seconden,
     createdAt: row.created_at,
   }
 }
@@ -62,6 +64,8 @@ export interface WedstrijdService {
    * ticket.
    */
   create(input: NewWedstrijdInput): Promise<Wedstrijd>
+  /** Updates this match's default kwart duration (seconds). Rejects if there is no active session. */
+  updateKwartDuur(wedstrijdId: string, seconden: number): Promise<Wedstrijd>
 }
 
 /**
@@ -140,6 +144,28 @@ export function createWedstrijdService(
           tegen_score: input.tegenScore ?? null,
           thuis_uit: input.thuisUit ?? null,
         })
+        .select()
+        .single()
+      if (error) {
+        throw error
+      }
+      return toWedstrijd(data)
+    },
+
+    async updateKwartDuur(wedstrijdId, seconden) {
+      const session = await auth.getSession()
+      if (!session) {
+        throw new Error('Niet ingelogd: kan kwartduur niet wijzigen.')
+      }
+
+      if (!Number.isFinite(seconden) || seconden <= 0) {
+        throw new Error('Kwartduur moet een positief aantal seconden zijn.')
+      }
+
+      const { data, error } = await client
+        .from('wedstrijd')
+        .update({ kwart_duur_seconden: Math.round(seconden) })
+        .eq('id', wedstrijdId)
         .select()
         .single()
       if (error) {

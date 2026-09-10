@@ -305,3 +305,70 @@ describe('wedstrijdService.list', () => {
     await expect(service.list('team-1')).rejects.toThrow(/permission denied/)
   })
 })
+
+describe('wedstrijdService.updateKwartDuur', () => {
+  it('rejects and never queries the database when there is no active session', async () => {
+    const from = vi.fn()
+    const client = { from } as unknown as SupabaseClient
+    const service = createWedstrijdService(client, fakeAuth(null), fakeSeizoenService())
+
+    await expect(service.updateKwartDuur('w1', 900)).rejects.toThrow(/niet ingelogd/i)
+    expect(from).not.toHaveBeenCalled()
+  })
+
+  it('rejects a non-positive duration without ever calling the database', async () => {
+    const from = vi.fn()
+    const client = { from } as unknown as SupabaseClient
+    const service = createWedstrijdService(client, fakeAuth(authedSession), fakeSeizoenService())
+
+    await expect(service.updateKwartDuur('w1', 0)).rejects.toThrow(/positief aantal seconden/i)
+    expect(from).not.toHaveBeenCalled()
+  })
+
+  it('updates kwart_duur_seconden for the given match and returns the updated wedstrijd', async () => {
+    const single = vi.fn().mockResolvedValue({
+      data: {
+        id: 'w1',
+        seizoen_id: 'seizoen-1',
+        datum: '2026-09-20',
+        formaat: '8v8',
+        formatie: '1-3-3-1',
+        tegenstander: null,
+        eigen_score: null,
+        tegen_score: null,
+        thuis_uit: null,
+        kwart_duur_seconden: 900,
+        created_at: '2026-01-01T00:00:00Z',
+      },
+      error: null,
+    })
+    const updateSelect = vi.fn().mockReturnValue({ single })
+    const eq = vi.fn().mockReturnValue({ select: updateSelect })
+    const update = vi.fn().mockReturnValue({ eq })
+    const from = vi.fn().mockReturnValue({ update })
+    const client = { from } as unknown as SupabaseClient
+    const service = createWedstrijdService(client, fakeAuth(authedSession), fakeSeizoenService())
+
+    const wedstrijd = await service.updateKwartDuur('w1', 900)
+
+    expect(from).toHaveBeenCalledWith('wedstrijd')
+    expect(update).toHaveBeenCalledWith({ kwart_duur_seconden: 900 })
+    expect(eq).toHaveBeenCalledWith('id', 'w1')
+    expect(wedstrijd.kwartDuurSeconden).toBe(900)
+  })
+
+  it('surfaces a Postgres/RLS error from the update instead of silently returning', async () => {
+    const single = vi.fn().mockResolvedValue({
+      data: null,
+      error: new Error('permission denied for table wedstrijd'),
+    })
+    const updateSelect = vi.fn().mockReturnValue({ single })
+    const eq = vi.fn().mockReturnValue({ select: updateSelect })
+    const update = vi.fn().mockReturnValue({ eq })
+    const from = vi.fn().mockReturnValue({ update })
+    const client = { from } as unknown as SupabaseClient
+    const service = createWedstrijdService(client, fakeAuth(authedSession), fakeSeizoenService())
+
+    await expect(service.updateKwartDuur('w1', 900)).rejects.toThrow(/permission denied/)
+  })
+})

@@ -137,6 +137,7 @@ export function WedstrijdScreen({ wedstrijdService, spelerService, aanwezigheidS
           spelerService={spelerService}
           aanwezigheidService={aanwezigheidService}
           opstellingService={opstellingService}
+          wedstrijdService={wedstrijdService}
           onSluiten={() => setSelectedWedstrijdId(null)}
         />
       )}

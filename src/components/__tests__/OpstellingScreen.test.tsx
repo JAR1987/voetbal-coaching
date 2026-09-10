@@ -24,6 +24,7 @@ const wedstrijd: Wedstrijd = {
   eigenScore: null,
   tegenScore: null,
   thuisUit: null,
+  kwartDuurSeconden: 1200,
   createdAt: '2026-01-01T00:00:00Z',
 }
 

@@ -5,6 +5,7 @@ import type { AanwezigheidService, SpelerAanwezigheid } from '../../data/aanwezi
 import type { OpstellingMap, OpstellingService } from '../../data/opstellingService'
 import type { SpelerService } from '../../data/spelerService'
 import type { Speler, Wedstrijd } from '../../data/types'
+import type { WedstrijdService } from '../../data/wedstrijdService'
 import { MatchDetailScreen } from '../MatchDetailScreen'
 
 const spelers: Speler[] = [
@@ -22,6 +23,7 @@ const wedstrijd: Wedstrijd = {
   eigenScore: null,
   tegenScore: null,
   thuisUit: null,
+  kwartDuurSeconden: 1200,
   createdAt: '2026-01-01T00:00:00Z',
 }
 
@@ -31,6 +33,14 @@ function fakeSpelerService(): SpelerService {
     create: vi.fn(),
     update: vi.fn(),
     setStatus: vi.fn(),
+  }
+}
+
+function fakeWedstrijdService(): WedstrijdService {
+  return {
+    list: vi.fn().mockResolvedValue([wedstrijd]),
+    create: vi.fn(),
+    updateKwartDuur: vi.fn().mockResolvedValue(wedstrijd),
   }
 }
 
@@ -66,6 +76,7 @@ describe('MatchDetailScreen — kwart-switcher (jt-dvh.14.6)', () => {
         spelerService={fakeSpelerService()}
         aanwezigheidService={fakeAanwezigheidService()}
         opstellingService={fakeOpstellingService()}
+        wedstrijdService={fakeWedstrijdService()}
         onSluiten={vi.fn()}
       />,
     )
@@ -85,6 +96,7 @@ describe('MatchDetailScreen — kwart-switcher (jt-dvh.14.6)', () => {
         spelerService={fakeSpelerService()}
         aanwezigheidService={fakeAanwezigheidService()}
         opstellingService={fakeOpstellingService()}
+        wedstrijdService={fakeWedstrijdService()}
         onSluiten={vi.fn()}
       />,
     )
