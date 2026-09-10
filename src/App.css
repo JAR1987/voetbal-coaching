@@ -235,3 +235,21 @@
   font-size: 0.9rem;
   margin: 0;
 }
+
+/* see jt-dvh.14.15 */
+.opstelling-vak,
+.opstelling-wisselbank button {
+  touch-action: manipulation;
+}
+
+.opstelling-drag-ghost {
+  position: fixed;
+  z-index: 1000;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  padding: 0.4rem 0.6rem;
+  border-radius: 0.5rem;
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+  font-size: 0.85rem;
+}

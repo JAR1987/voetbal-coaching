@@ -1,11 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { DragEvent } from 'react'
+import type { PointerEvent as ReactPointerEvent } from 'react'
 import type { AanwezigheidService } from '../data/aanwezigheidService'
 import { FORMATIE_SLOTS } from '../data/formaties'
 import type { Beoordeling, BeoordelingMap, OpstellingMap, OpstellingService } from '../data/opstellingService'
 import type { SpelerService } from '../data/spelerService'
 import type { Speler, Wedstrijd } from '../data/types'
 import { genereerWisselvoorstel } from '../data/wisselAlgoritme'
+
+// Sleep pas tonen (ghost) na deze verplaatsing (px) — voorkomt een flits bij
+// een gewone tik op een bezet vak (jt-dvh.14.15 review).
+const GHOST_ACTIVATIE_PX = 8
 
 interface OpstellingScreenProps {
   opstellingService: OpstellingService
@@ -25,6 +29,14 @@ export function OpstellingScreen({ opstellingService, aanwezigheidService, spele
   const [opstellingPerKwart, setOpstellingPerKwart] = useState<Record<number, OpstellingMap>>({})
   const [beoordelingenPerKwart, setBeoordelingenPerKwart] = useState<Record<number, BeoordelingMap>>({})
   const [selectedBenchSpelerId, setSelectedBenchSpelerId] = useState<string | null>(null)
+  // Sleepstatus (zie jt-dvh.14.15): welke speler wordt gesleept en de
+  // laatste aanwijzerpositie voor de ghost. `null` = niet aan het slepen.
+  const [dragSpelerId, setDragSpelerId] = useState<string | null>(null)
+  const [dragPos, setDragPos] = useState<{ x: number; y: number } | null>(null)
+  // Startpositie van de sleep — buiten React-state, want alleen de
+  // pointer-effect hieronder leest 'm om de ghost pas na een kleine
+  // verplaatsing te tonen.
+  const dragStartRef = useRef<{ x: number; y: number } | null>(null)
   // Welke positie's beoordelingssheet open staat (ticket .7); null = gesloten.
   const [beoordeelPositie, setBeoordeelPositie] = useState<string | null>(null)
   // SpelerId die bezette positie had toen de sheet openging — bewaakt tegen
@@ -133,14 +145,19 @@ export function OpstellingScreen({ opstellingService, aanwezigheidService, spele
   )
   const wisselbank = aanwezig.filter((speler) => !geplaatsteSpelerIds.has(speler.id))
 
-  async function plaatsSpeler(positie: string, spelerId: string) {
-    try {
-      await opstellingService.placeSpeler(wedstrijd.id, kwart, positie, spelerId)
-      await load()
-    } catch {
-      setError('Speler plaatsen is niet gelukt.')
-    }
-  }
+  // useCallback (net als `load`): stabiele identiteit zodat de sleep-effect
+  // hieronder niet op elke render zijn document-listeners hoeft te vervangen.
+  const plaatsSpeler = useCallback(
+    async (positie: string, spelerId: string) => {
+      try {
+        await opstellingService.placeSpeler(wedstrijd.id, kwart, positie, spelerId)
+        await load()
+      } catch {
+        setError('Speler plaatsen is niet gelukt.')
+      }
+    },
+    [opstellingService, wedstrijd.id, kwart, load],
+  )
 
   function handleBenchTap(spelerId: string) {
     setSelectedBenchSpelerId((current) => (current === spelerId ? null : spelerId))
@@ -198,18 +215,72 @@ export function OpstellingScreen({ opstellingService, aanwezigheidService, spele
     }
   }
 
-  function handleDragStart(event: DragEvent<HTMLElement>, spelerId: string) {
-    event.dataTransfer.setData('text/plain', spelerId)
-    event.dataTransfer.effectAllowed = 'move'
+  // Geen `preventDefault` bij het starten van een sleep: dat zou op touch ook
+  // de compat-click onderdrukken die tikken (onClick) nodig heeft.
+  function handleDragPointerDown(event: ReactPointerEvent<HTMLElement>, spelerId: string) {
+    dragStartRef.current = { x: event.clientX, y: event.clientY }
+    setDragSpelerId(spelerId)
   }
 
-  function handleDrop(event: DragEvent<HTMLElement>, positie: string) {
-    event.preventDefault()
-    const spelerId = event.dataTransfer.getData('text/plain')
-    if (spelerId) {
-      void plaatsSpeler(positie, spelerId)
+  // Tijdens een sleep: tekstselectie uit (touch houdt anders soms een
+  // selectie-bubble vast) — hersteld zodra de sleep stopt.
+  useEffect(() => {
+    if (dragSpelerId === null) {
+      return
     }
-  }
+    document.body.style.userSelect = 'none'
+    return () => {
+      document.body.style.userSelect = ''
+    }
+  }, [dragSpelerId])
+
+  // Document-breed i.p.v. op het bronelement: zo komt `pointerup`/`pointercancel`
+  // altijd aan, ook als de vinger het bronvak al verlaten heeft.
+  useEffect(() => {
+    if (dragSpelerId === null) {
+      return
+    }
+    const spelerId = dragSpelerId
+    const start = dragStartRef.current
+    let onderPositie: string | null = null
+    // Blijft aan zodra de drempel één keer gehaald is (ook als de vinger
+    // daarna weer dichtbij het startpunt komt) — voorkomt dat een tik met
+    // drempel-jitter alsnog een drop-target oplevert.
+    let sleepActief = false
+
+    // Touch geeft impliciete pointer capture aan het bronelement (Pointer
+    // Events-spec): `pointerenter`/`leave` vuren dan niet voor vakken waar de
+    // vinger overheen beweegt. Hit-testen op coördinaten werkt wel altijd.
+    function handlePointerMove(event: globalThis.PointerEvent) {
+      if (!start || Math.hypot(event.clientX - start.x, event.clientY - start.y) >= GHOST_ACTIVATIE_PX) {
+        sleepActief = true
+        setDragPos({ x: event.clientX, y: event.clientY })
+      }
+      if (!sleepActief) {
+        return
+      }
+      const onder = document.elementFromPoint(event.clientX, event.clientY)
+      const vak = onder instanceof Element ? onder.closest<HTMLElement>('.opstelling-vak') : null
+      onderPositie = vak?.dataset.positie ?? null
+    }
+
+    function eindigSleep() {
+      if (onderPositie) {
+        void plaatsSpeler(onderPositie, spelerId)
+      }
+      setDragSpelerId(null)
+      setDragPos(null)
+    }
+
+    document.addEventListener('pointermove', handlePointerMove)
+    document.addEventListener('pointerup', eindigSleep)
+    document.addEventListener('pointercancel', eindigSleep)
+    return () => {
+      document.removeEventListener('pointermove', handlePointerMove)
+      document.removeEventListener('pointerup', eindigSleep)
+      document.removeEventListener('pointercancel', eindigSleep)
+    }
+  }, [dragSpelerId, plaatsSpeler])
 
   function vindSpeler(spelerId: string | undefined): Speler | undefined {
     return spelerId ? aanwezig.find((speler) => speler.id === spelerId) : undefined
@@ -240,10 +311,8 @@ export function OpstellingScreen({ opstellingService, aanwezigheidService, spele
                   className={`opstelling-vak${speler ? ' bezet' : ' leeg'}`}
                   style={{ left: `${slot.x}%`, top: `${slot.y}%` }}
                   aria-label={`${slot.naam}: ${speler ? speler.naam : 'leeg'}`}
-                  draggable={!!speler}
-                  onDragStart={(event) => speler && handleDragStart(event, speler.id)}
-                  onDragOver={(event) => event.preventDefault()}
-                  onDrop={(event) => handleDrop(event, slot.naam)}
+                  data-positie={slot.naam}
+                  onPointerDown={(event) => speler && handleDragPointerDown(event, speler.id)}
                   onClick={() => handleSlotTap(slot.naam)}
                 >
                   <span className="opstelling-vak-positie">{slot.naam}</span>
@@ -261,8 +330,7 @@ export function OpstellingScreen({ opstellingService, aanwezigheidService, spele
                 <li key={speler.id}>
                   <button
                     type="button"
-                    draggable
-                    onDragStart={(event) => handleDragStart(event, speler.id)}
+                    onPointerDown={(event) => handleDragPointerDown(event, speler.id)}
                     onClick={() => handleBenchTap(speler.id)}
                     aria-pressed={selectedBenchSpelerId === speler.id}
                   >
@@ -272,6 +340,12 @@ export function OpstellingScreen({ opstellingService, aanwezigheidService, spele
               ))}
             </ul>
           </div>
+
+          {dragSpelerId && dragPos && (
+            <div className="opstelling-drag-ghost" inert style={{ left: dragPos.x, top: dragPos.y }}>
+              {vindSpeler(dragSpelerId)?.naam}
+            </div>
+          )}
 
           {beoordeelPositie && (
             <div className="opstelling-beoordeling-sheet" role="dialog" aria-label={`Beoordeling ${beoordeelPositie}`}>
