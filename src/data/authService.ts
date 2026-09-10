@@ -15,12 +15,7 @@ export interface AuthService {
   onAuthStateChange(callback: (session: Session | null) => void): () => void
 }
 
-/**
- * Wraps Supabase Auth. This is the only place in the app that talks to
- * `client.auth` directly — UI code and other services depend on the
- * `AuthService` interface above, never on supabase-js, so tests can pass in
- * an in-memory fake instead of a real Supabase client.
- */
+/** Wraps Supabase Auth — the only place that touches `client.auth` directly. */
 export function createAuthService(client: SupabaseClient): AuthService {
   return {
     async signIn({ email, password }) {

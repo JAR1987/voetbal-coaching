@@ -24,11 +24,9 @@ create index if not exists speler_team_id_idx on public.speler (team_id);
 
 alter table public.speler enable row level security;
 
--- speler heeft (bewust, zie docs/datamodel.md) geen coach_user_id kolom —
--- een speler hoort bij een team, niet rechtstreeks bij een coach. Daarom
--- scopen de policies hieronder via een EXISTS-subquery terug naar
--- team.coach_user_id, in plaats van de simpele kolomvergelijking die de
--- policies op `team` zelf gebruiken.
+-- speler heeft geen coach_user_id kolom (hoort bij een team, niet direct bij
+-- een coach) — de policies hieronder scopen daarom via een EXISTS-subquery
+-- terug naar team.coach_user_id.
 
 drop policy if exists "Coach kan spelers van eigen team lezen" on public.speler;
 create policy "Coach kan spelers van eigen team lezen"
@@ -81,6 +79,5 @@ create policy "Coach kan spelers van eigen team bijwerken"
   );
 
 -- Bewust geen "for delete"-policy: spelers worden nooit verwijderd (status
--- gaat naar 'inactief' i.p.v. een delete, zie docs/datamodel.md). Zonder een
--- delete-policy staat RLS delete voor 'authenticated' sowieso nergens toe,
--- dus dat is hier het gewenste gedrag, niet een vergeten policy.
+-- gaat naar 'inactief', zie docs/datamodel.md) — zonder policy staat RLS
+-- delete voor 'authenticated' sowieso nergens toe.

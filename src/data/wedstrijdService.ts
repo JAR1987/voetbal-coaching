@@ -51,34 +51,17 @@ export interface NewWedstrijdInput {
 export interface WedstrijdService {
   /** The given team's matches, most recent first. Rejects if there is no active session. */
   list(teamId: string): Promise<Wedstrijd[]>
-  /**
-   * Creates a match. Only `datum` and `formaat` are required: `formatie`
-   * defaults to that format's default option when omitted, and is
-   * otherwise validated against that format's two allowed options; the
-   * match-info fields (tegenstander/scores/thuis_uit) are optional and
-   * default to null.
-   *
-   * Auto-resolves/creates the match's season via
-   * `seizoenService.getOrCreateSeasonForDate(teamId, datum)` before
-   * inserting — there's deliberately no season picker in the UI, per the
-   * ticket.
-   */
+  /** Creates a match (`datum`+`formaat` required; `formatie` defaults/validates
+   * per format, see `FORMATIE_OPTIONS`). Auto-resolves/creates the season via
+   * `seizoenService.getOrCreateSeasonForDate` — there's no season picker in the UI. */
   create(input: NewWedstrijdInput): Promise<Wedstrijd>
   /** Updates this match's default kwart duration (seconds). Rejects if there is no active session. */
   updateKwartDuur(wedstrijdId: string, seconden: number): Promise<Wedstrijd>
 }
 
-/**
- * Reads/writes the `wedstrijd` table.
- *
- * `wedstrijd` has no `team_id` of its own (it belongs to a `seizoen`, which
- * belongs to a `team`), so `list` first asks `seizoenService` for the
- * team's seasons and then queries `wedstrijd` scoped to those season ids.
- * RLS on `wedstrijd` (see supabase/migrations) independently enforces
- * ownership via a two-level join (wedstrijd -> seizoen -> team), so this
- * client-side scoping is a query concern (which team's matches do we want),
- * not a duplicate of the security check.
- */
+/** Reads/writes the `wedstrijd` table. No `team_id` of its own (belongs to a
+ * `seizoen`), so `list` scopes via `seizoenService`'s season ids; RLS (see
+ * supabase/migrations) independently enforces ownership via that join. */
 export function createWedstrijdService(
   client: SupabaseClient,
   auth: AuthService,

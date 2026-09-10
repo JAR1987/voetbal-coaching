@@ -1,26 +1,10 @@
 -- Aanwezigheid table: aanwezigheids- en fitheid-status per (wedstrijd,
--- speler). Zie ticket "Aanwezigheid + fitheid-status" (jt-dvh.14.4) en
--- docs/datamodel.md.
+-- speler). Zie docs/datamodel.md.
 --
--- Belangrijke ontwerpbeslissing — "geen rij = aanwezig": standaard staat elke
--- actieve speler op "aanwezig" zonder fitheid-status, zonder dat daarvoor
--- een rij in deze tabel hoeft te bestaan. Er wordt dus NIET vooraf een rij
--- per (wedstrijd, speler) aangemaakt zodra een wedstrijd wordt aangemaakt —
--- een rij ontstaat pas op het moment dat de coach iets wijzigt (iemand
--- afmeldt, of een fitheid-status zet). Zie
--- aanwezigheidService.listForMatch (src/data/aanwezigheidService.ts) voor de
--- merge-logica aan de leeskant die dit toepast (de actieve spelerslijst van
--- het team samenvoegen met de rijen die hier wel bestaan, met "aanwezig" als
--- default voor de rest).
---
--- Dat maakt setStatus/setFitheid ook geen check-then-insert: het is een
--- upsert op de unique-constraint hieronder (net als de datamodel-beslissing
--- het beschrijft: "een natural upsert target, geen race-prone
--- check-then-insert"). De constraint is dus niet nodig om een race te
--- voorkomen (er is geen aparte check-stap die verloren kan gaan), maar wel
--- voor data-integriteit — nooit twee rijen voor dezelfde
--- (wedstrijd, speler)-combinatie — en staat daarom, net als bij `seizoen`,
--- meteen in déze eerste migratie, niet als latere follow-up.
+-- Geen rij voor een (wedstrijd, speler)-paar betekent impliciet "aanwezig",
+-- zonder fitheid — zie aanwezigheidService.listForMatch voor de merge-logica.
+-- De unique-constraint hieronder is setStatus/setFitheid's upsert-target,
+-- niet een race-guard voor een check-then-insert (er is geen check-stap).
 
 create table if not exists public.aanwezigheid (
   id uuid primary key default gen_random_uuid(),
@@ -34,20 +18,14 @@ create table if not exists public.aanwezigheid (
 
 comment on table public.aanwezigheid is 'Aanwezigheid + fitheid-status per (wedstrijd, speler). Geen rij voor een (wedstrijd, speler)-combinatie betekent impliciet "aanwezig" zonder fitheid-status — zie aanwezigheidService.listForMatch voor de merge-logica die dit toepast. De unique-constraint op (wedstrijd_id, speler_id) is het upsert-target van setStatus/setFitheid.';
 
--- Elke leeslijst filtert op wedstrijd_id, en de RLS-policies hieronder
--- joinen erop; index het. (speler_id heeft al een impliciete index via de
--- foreign key + de unique-constraint hierboven, dus geen aparte index
--- nodig.)
+-- Elke leeslijst filtert op wedstrijd_id; index het. (speler_id heeft al een
+-- impliciete index via de FK + unique-constraint hierboven.)
 create index if not exists aanwezigheid_wedstrijd_id_idx on public.aanwezigheid (wedstrijd_id);
 
 alter table public.aanwezigheid enable row level security;
 
--- aanwezigheid heeft geen team_id/seizoen_id van zichzelf (het hoort bij een
--- wedstrijd, die op zijn beurt bij een seizoen hoort, dat weer bij een team
--- hoort), dus de policies hieronder joinen drie niveaus diep:
--- aanwezigheid -> wedstrijd -> seizoen -> team.coach_user_id — één stap
--- verder dan wedstrijd's eigen twee-niveaus-diepe join (zie
--- 20260907160000_create_wedstrijd_table.sql).
+-- aanwezigheid heeft geen team_id/seizoen_id — policies joinen drie niveaus
+-- diep: aanwezigheid -> wedstrijd -> seizoen -> team.coach_user_id.
 
 drop policy if exists "Coach kan aanwezigheid van eigen team lezen" on public.aanwezigheid;
 create policy "Coach kan aanwezigheid van eigen team lezen"
@@ -111,7 +89,5 @@ create policy "Coach kan aanwezigheid van eigen team bijwerken"
     )
   );
 
--- Bewust geen "for delete"-policy: geen ticket vraagt om aanwezigheid-rijen
--- te kunnen verwijderen — afmelden/weer aanwezig zetten is een update
--- (status teruggeschreven naar 'aanwezig'), geen delete. Zonder
--- delete-policy staat RLS delete voor 'authenticated' sowieso nergens toe.
+-- Bewust geen "for delete"-policy: afmelden is een update (status terug naar
+-- 'aanwezig'), geen delete; zonder policy staat RLS delete dus nergens toe.

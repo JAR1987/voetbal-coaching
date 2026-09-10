@@ -1,13 +1,8 @@
 -- Wedstrijd table: één rij per wedstrijd. Formaat en formatie liggen vast
--- voor de hele wedstrijd (zie docs/datamodel.md — formatie is niet per
--- kwart), gekozen bij het aanmaken (zie ticket "Wedstrijd aanmaken +
--- formatie kiezen", jt-dvh.14.3).
+-- voor de hele wedstrijd (docs/datamodel.md — formatie is niet per kwart).
 --
--- tegenstander/eigen_score/tegen_score/thuis_uit staan hier al bij, maar
--- worden in dit ticket nog niet door de UI ingevuld — dat is de latere
--- ticket "Wedstrijdgegevens vastleggen". De kolommen (en de update-policy
--- hieronder) bestaan nu al zodat die latere ticket alleen UI hoeft toe te
--- voegen, niet nog een migratie.
+-- tegenstander/eigen_score/tegen_score/thuis_uit-kolommen bestaan al, al
+-- vult de UI ze pas in een latere ticket ("Wedstrijdgegevens vastleggen").
 
 create table if not exists public.wedstrijd (
   id uuid primary key default gen_random_uuid(),
@@ -20,13 +15,9 @@ create table if not exists public.wedstrijd (
   tegen_score int null,
   thuis_uit text null check (thuis_uit in ('thuis', 'uit')),
   created_at timestamptz not null default now(),
-  -- wedstrijdService.create (src/data/wedstrijdService.ts) already validates
-  -- that formatie belongs to the given formaat (FORMATIE_OPTIONS in
-  -- src/data/types.ts: 8v8 -> 1-3-3-1/1-2-3-2, 11v11 -> 1-4-3-3/1-4-4-2), but
-  -- that's app-layer only — a direct write bypassing the service (or a
-  -- future bug in it) could otherwise still insert a mismatched pair. This
-  -- table-level constraint enforces the same pairing rule in the database,
-  -- so it holds regardless of what wrote the row.
+  -- Mirrors wedstrijdService's app-level formatie/formaat validation
+  -- (FORMATIE_OPTIONS in src/data/types.ts) at the DB layer, so a bypass or
+  -- future service bug can't insert a mismatched pair.
   constraint wedstrijd_formatie_bij_formaat_check check (
     (formaat = '8v8' and formatie in ('1-3-3-1', '1-2-3-2'))
     or (formaat = '11v11' and formatie in ('1-4-3-3', '1-4-4-2'))
@@ -41,10 +32,8 @@ create index if not exists wedstrijd_seizoen_id_idx on public.wedstrijd (seizoen
 
 alter table public.wedstrijd enable row level security;
 
--- wedstrijd heeft geen team_id (het hoort bij een seizoen, dat op zijn
--- beurt bij een team hoort), dus de policies hieronder joinen twee niveaus
--- diep: wedstrijd -> seizoen -> team.coach_user_id, in één EXISTS-subquery
--- met een join tussen seizoen en team.
+-- wedstrijd heeft geen team_id (hoort bij seizoen, dat bij team hoort) —
+-- policies joinen twee niveaus diep: wedstrijd -> seizoen -> team.coach_user_id.
 
 drop policy if exists "Coach kan wedstrijden van eigen team lezen" on public.wedstrijd;
 create policy "Coach kan wedstrijden van eigen team lezen"

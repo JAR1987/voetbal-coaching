@@ -22,14 +22,8 @@ function toAanwezigheid(row: AanwezigheidRow): Aanwezigheid {
   }
 }
 
-/**
- * One active player's attendance/fitness for a specific match, after
- * applying the "no row = aanwezig" default (see the module doc comment on
- * `createAanwezigheidService` below). This is what `listForMatch` returns:
- * always exactly one entry per player passed in, carrying the full `Speler`
- * so the UI doesn't need to zip the result back up with a separate player
- * list.
- */
+/** One player's attendance/fitness for a match (the "no row = aanwezig"
+ * default already applied) — what `listForMatch` returns, one per player. */
 export interface SpelerAanwezigheid {
   speler: Speler
   status: AanwezigheidStatus
@@ -37,65 +31,20 @@ export interface SpelerAanwezigheid {
 }
 
 export interface AanwezigheidService {
-  /**
-   * The full attendance list for a match: exactly one entry per player in
-   * `alleActievePlayers`, in the same order, defaulted to
-   * `status: 'aanwezig'`/`fitheidStatus: null` for any player that has no
-   * `aanwezigheid` row yet for this match. Rejects if there is no active
-   * session.
-   */
+  /** Full attendance list: one entry per player in `alleActievePlayers`, same
+   * order, defaulted to `aanwezig`/no-fitheid when there's no row yet. */
   listForMatch(wedstrijdId: string, alleActievePlayers: Speler[]): Promise<SpelerAanwezigheid[]>
-  /**
-   * Sets a player's attendance status for a match (upsert on
-   * `(wedstrijd_id, speler_id)` — creates the row if it doesn't exist yet,
-   * updates it if it does). Only touches the `status` column: an existing
-   * `fitheid_status` on that row is left untouched, and a newly-created row
-   * gets the column default (`null`, i.e. no fitheid set yet).
-   */
+  /** Upserts a player's attendance status on `(wedstrijd_id, speler_id)`.
+   * Only touches `status` — an existing `fitheid_status` is left untouched. */
   setStatus(wedstrijdId: string, spelerId: string, status: AanwezigheidStatus): Promise<Aanwezigheid>
-  /**
-   * Sets a player's fitheid status for a match (same upsert target as
-   * `setStatus`). Only touches the `fitheid_status` column: an existing
-   * `status` on that row is left untouched, and a newly-created row gets the
-   * table default (`'aanwezig'`) for `status`. Pass `null` to clear a
-   * previously-set fitheid status.
-   */
+  /** Upserts a player's fitheid status (same target as `setStatus`). Only
+   * touches `fitheid_status`; pass `null` to clear it. */
   setFitheid(wedstrijdId: string, spelerId: string, fitheidStatus: FitheidStatus | null): Promise<Aanwezigheid>
 }
 
-/**
- * Reads/writes the `aanwezigheid` table.
- *
- * Design decision — "no row means aanwezig": per the ticket ("Standaard
- * iedereen aanwezig"), a coach should never have to do anything for the
- * common case where the whole team is present. Rather than inserting an
- * `aanwezigheid` row for every active player up front, this service treats
- * the *absence* of a row for a (wedstrijd, speler) pair as an implicit
- * "aanwezig, no fitheid set" — a row only gets created (via `setStatus` or
- * `setFitheid`) the moment the coach actually changes something for that
- * player. `listForMatch` is what applies this default: it fetches whatever
- * `aanwezigheid` rows already exist for the match, then merges them onto the
- * full active-roster list the caller passes in, filling in the default for
- * every player that has no row yet.
- *
- * `setStatus`/`setFitheid` both upsert on `(wedstrijd_id, speler_id)` — the
- * unique constraint from `supabase/migrations` — rather than a
- * check-then-insert: this is a natural upsert target (see
- * docs/datamodel.md), not a race-prone read-then-write, so there's no
- * separate "recover from 23505" dance like `teamService.getOrCreateMyTeam`
- * or `seizoenService.getOrCreateSeasonForDate` need for their check-then-
- * insert. Each upsert only names the one column it means to change
- * (`status` or `fitheid_status`), so setting one never clobbers the other on
- * an existing row — Postgres's `ON CONFLICT DO UPDATE SET <named columns>`
- * (which is what supabase-js's `.upsert()` generates) simply leaves
- * unnamed columns alone.
- *
- * `wedstrijd_id`/`speler_id` are filtered client-side — like `speler.team_id`
- * elsewhere, these aren't the RLS-scoping columns, just "which match's
- * attendance do we want". RLS on `aanwezigheid` (see supabase/migrations)
- * independently enforces ownership via a three-level join
- * (aanwezigheid -> wedstrijd -> seizoen -> team.coach_user_id).
- */
+/** Reads/writes the `aanwezigheid` table. "No row" means `aanwezig` (see
+ * `SpelerAanwezigheid`); setStatus/setFitheid upsert on the
+ * `(wedstrijd_id, speler_id)` constraint (see supabase/migrations). */
 export function createAanwezigheidService(client: SupabaseClient, auth: AuthService): AanwezigheidService {
   return {
     async listForMatch(wedstrijdId, alleActievePlayers) {

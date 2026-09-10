@@ -1,21 +1,10 @@
 -- Seizoen table: een seizoen hoort bij één team; elke wedstrijd hoort bij
--- precies één seizoen (zie docs/datamodel.md).
+-- precies één seizoen (zie docs/datamodel.md). naam wordt automatisch
+-- afgeleid uit de wedstrijddatum — geen seizoen-beheerscherm, zie
+-- seizoenService.deriveSeasonLabel voor de regel.
 --
--- Er is bewust geen seizoen-beheerscherm (zie ticket "Wedstrijd aanmaken +
--- formatie kiezen", jt-dvh.14.3): seizoenService.getOrCreateSeasonForDate
--- (src/data/seizoenService.ts) leidt het seizoen automatisch af uit de datum
--- van de wedstrijd (Europees jeugdvoetbalseizoen: augustus t/m mei, dus een
--- wedstrijd in bv. september 2026 hoort bij seizoen "2026-2027", een
--- wedstrijd in maart 2026 bij "2025-2026" — zie die service voor de exacte
--- regel, in deriveSeasonLabel) en maakt de rij aan als hij nog niet bestaat.
---
--- Net als team.coach_user_id in ticket 2 ("Spelerslijst beheren") is
--- getOrCreateSeasonForDate een check-then-insert, dus dezelfde race kan
--- optreden (twee gelijktijdige aanroepen voor hetzelfde team+seizoen zien
--- allebei "bestaat nog niet"). Anders dan in ticket 2 komt de bijbehorende
--- unique-constraint hier meteen mee in deze eerste migratie, in plaats van
--- er in een latere migratie achteraan te moeten — precies de les uit die
--- eerdere race.
+-- De (team_id, naam) unique-constraint hieronder maakt
+-- getOrCreateSeasonForDate's check-then-insert race-safe (zie die service).
 
 create table if not exists public.seizoen (
   id uuid primary key default gen_random_uuid(),

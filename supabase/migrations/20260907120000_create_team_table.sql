@@ -1,15 +1,8 @@
--- Team table: the coach's team(s).
+-- Team table: the coach's team(s), one row per coach today (see the
+-- team_coach_user_id_unique migration for the constraint).
 --
--- Single-user today: exactly one coach per team. `coach_user_id` exists from
--- day one (per docs/datamodel.md) so a second coach/team is just another row
--- later, no redesign needed.
---
--- NOTE: `id` is a random uuid (not a sequential bigint identity) even though
--- that's normally the better default for write-heavy/large tables — this is
--- a deliberate exception because docs/datamodel.md fixes `team.id uuid pk`
--- as the shape every later ticket's foreign keys (seizoen, speler, ...) will
--- reference, and this table will only ever hold a handful of rows for a
--- single coach, so index fragmentation is not a concern at this scale.
+-- `id` stays a uuid, not a bigint identity: every later table's FK (seizoen,
+-- speler, ...) is typed against this shape (docs/datamodel.md).
 
 create table if not exists public.team (
   id uuid primary key default gen_random_uuid(),

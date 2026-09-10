@@ -45,19 +45,10 @@ export const FORMAAT_LABELS: Record<Formaat, string> = {
   '11v11': '11-tegen-11',
 }
 
-/**
- * Attendance status for one player at one match — `aanwezig` (present) is
- * the default, `afgemeld` means the coach marked them unavailable. See
- * `src/data/aanwezigheidService.ts` for the "no row = aanwezig" design
- * decision this type is part of.
- */
+/** Attendance for one player/match. `aanwezig` (default) = present, `afgemeld` = coach marked unavailable. */
 export type AanwezigheidStatus = 'aanwezig' | 'afgemeld'
 
-/**
- * Fitness status a coach can set per aanwezige player for a match. Only
- * meaningful while `status === 'aanwezig'` — the UI does not offer it for an
- * `afgemeld` player.
- */
+/** Fitness status; only meaningful while `status === 'aanwezig'` (UI hides it for `afgemeld`). */
 export type FitheidStatus = 'fit' | 'let_op' | 'geblesseerd'
 
 /** `FitheidStatus` options in display order, for rendering a select. */
@@ -70,11 +61,7 @@ export const FITHEID_LABELS: Record<FitheidStatus, string> = {
   geblesseerd: 'Geblesseerd',
 }
 
-/**
- * The two formation options offered per format (per the ticket: 8v8 gets
- * 1-3-3-1/1-2-3-2, 11v11 gets 1-4-3-3/1-4-4-2), in display order — the first
- * entry of each is the default, see `DEFAULT_FORMATIE`.
- */
+/** Two formation options per format, in display order; first is the default (see `DEFAULT_FORMATIE`). */
 export const FORMATIE_OPTIONS: Record<Formaat, readonly Formatie[]> = {
   '8v8': ['1-3-3-1', '1-2-3-2'],
   '11v11': ['1-4-3-3', '1-4-4-2'],
@@ -104,12 +91,7 @@ export interface Wedstrijd {
   createdAt: string
 }
 
-/**
- * A raw `aanwezigheid` row, as used by the app (camelCase — mapped from the
- * table's snake_case columns). One row per (wedstrijd, speler) pair that the
- * coach has actually touched — see `src/data/aanwezigheidService.ts` for why
- * most players never get a row at all ("no row = aanwezig" by default).
- */
+/** Raw `aanwezigheid` row (camelCase). Exists only for pairs the coach touched — see aanwezigheidService for the "no row = aanwezig" default. */
 export interface Aanwezigheid {
   id: string
   wedstrijdId: string

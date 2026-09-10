@@ -49,27 +49,12 @@ export interface SpelerService {
   create(input: NewSpelerInput): Promise<Speler>
   /** Updates one or more fields of an existing player, by id. */
   update(id: string, changes: SpelerUpdateInput): Promise<Speler>
-  /**
-   * Sets a player's status (`actief`/`inactief`), by id. Never deletes the
-   * row — per docs/datamodel.md, players who stop are set to `inactief` so
-   * historical opstelling/aanwezigheid data stays intact.
-   */
+  /** Sets a player's status (`actief`/`inactief`), by id. Never deletes the row (docs/datamodel.md). */
   setStatus(id: string, status: SpelerStatus): Promise<Speler>
 }
 
-/**
- * Reads/writes the `speler` table.
- *
- * `team_id` is filtered client-side (`.eq('team_id', teamId)`) — unlike
- * `coach_user_id` on `team`, this isn't the RLS-scoping column, it's just
- * "which team's roster do we want", so filtering on it here is a normal
- * query concern, not a duplicate of the security check. RLS on `speler`
- * (see supabase/migrations) still independently enforces that the row's
- * team belongs to the signed-in coach via a join back to `team`.
- *
- * Each method refuses to even make the request when there's no session,
- * rather than firing an unauthenticated call that RLS would reject anyway.
- */
+/** Reads/writes the `speler` table. `team_id` filtering here is a query
+ * concern; RLS (see supabase/migrations) independently enforces ownership. */
 export function createSpelerService(client: SupabaseClient, auth: AuthService): SpelerService {
   return {
     async list(teamId, options = {}) {
