@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router-dom'
 import type { AuthService } from '../../data/authService'
 import type { TeamService } from '../../data/teamService'
 import type { SpelerService } from '../../data/spelerService'
@@ -67,36 +69,84 @@ function fakeOpstellingService(overrides: Partial<OpstellingService> = {}): Opst
   }
 }
 
-describe('HomeScreen', () => {
-  it('fetches-or-creates the coach team and renders the player list for it', async () => {
-    const teamService: TeamService = {
-      getMyTeams: vi.fn(),
-      getOrCreateMyTeam: vi.fn().mockResolvedValue({
-        id: 'team-9',
-        coachUserId: 'coach-1',
-        naam: 'Testteam',
-        createdAt: '2026-01-01T00:00:00Z',
-      }),
-    }
-    const spelerService = fakeSpelerService()
-    const wedstrijdService = fakeWedstrijdService()
+interface RenderHomeScreenOptions {
+  teamService: TeamService
+  spelerService?: SpelerService
+  wedstrijdService?: WedstrijdService
+  initialEntries?: string[]
+}
 
-    render(
+function renderHomeScreen({
+  teamService,
+  spelerService = fakeSpelerService(),
+  wedstrijdService = fakeWedstrijdService(),
+  initialEntries = ['/'],
+}: RenderHomeScreenOptions) {
+  const authService = fakeAuthService()
+  render(
+    <MemoryRouter initialEntries={initialEntries}>
       <HomeScreen
-        authService={fakeAuthService()}
+        authService={authService}
         teamService={teamService}
         spelerService={spelerService}
         wedstrijdService={wedstrijdService}
         aanwezigheidService={fakeAanwezigheidService()}
         opstellingService={fakeOpstellingService()}
-      />,
-    )
+      />
+    </MemoryRouter>,
+  )
+  return { authService }
+}
 
-    expect(await screen.findByText('Spelers')).toBeInTheDocument()
-    expect(teamService.getOrCreateMyTeam).toHaveBeenCalled()
-    expect(spelerService.list).toHaveBeenCalledWith('team-9', { includeInactive: false })
-    expect(await screen.findByText('Wedstrijden')).toBeInTheDocument()
-    expect(wedstrijdService.list).toHaveBeenCalledWith('team-9')
+function fakeTeamService(): TeamService {
+  return {
+    getMyTeams: vi.fn(),
+    getOrCreateMyTeam: vi.fn().mockResolvedValue({
+      id: 'team-9',
+      coachUserId: 'coach-1',
+      naam: 'Testteam',
+      createdAt: '2026-01-01T00:00:00Z',
+    }),
+  }
+}
+
+describe('HomeScreen', () => {
+  it('redirects the bare "/" to /wedstrijden (the primary in-match workflow), not a stacked player+match list', async () => {
+    const wedstrijdService = fakeWedstrijdService()
+    renderHomeScreen({ teamService: fakeTeamService(), wedstrijdService })
+
+    expect(await screen.findByRole('heading', { name: 'Wedstrijden' })).toBeInTheDocument()
+    // Effect-vs-render race: the heading can commit slightly before the
+    // mounted WedstrijdScreen's own data-fetch effect has run — wait for it
+    // rather than asserting synchronously right after the findBy above.
+    await waitFor(() => expect(wedstrijdService.list).toHaveBeenCalledWith('team-9'))
+    // Player list is a separate screen now — not rendered alongside it.
+    expect(screen.queryByRole('heading', { name: 'Spelers' })).not.toBeInTheDocument()
+  })
+
+  it('shows the fixed tab bar (Spelers / Wedstrijden) once the team resolves, and Spelers is its own screen', async () => {
+    const spelerService = fakeSpelerService()
+    renderHomeScreen({ teamService: fakeTeamService(), spelerService, initialEntries: ['/spelers'] })
+
+    expect(await screen.findByRole('heading', { name: 'Spelers' })).toBeInTheDocument()
+    await waitFor(() => expect(spelerService.list).toHaveBeenCalledWith('team-9', { includeInactive: false }))
+    // Match list is a separate screen now — not rendered alongside it.
+    expect(screen.queryByRole('heading', { name: 'Wedstrijden' })).not.toBeInTheDocument()
+
+    expect(screen.getByRole('link', { name: 'Spelers' })).toHaveClass('actief')
+    expect(screen.getByRole('link', { name: 'Wedstrijden' })).not.toHaveClass('actief')
+  })
+
+  it('navigates between Spelers and Wedstrijden via the tab bar', async () => {
+    const user = userEvent.setup()
+    renderHomeScreen({ teamService: fakeTeamService() })
+    await screen.findByRole('heading', { name: 'Wedstrijden' })
+
+    await user.click(screen.getByRole('link', { name: 'Spelers' }))
+    expect(await screen.findByText('Nog geen spelers toegevoegd.')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('link', { name: 'Wedstrijden' }))
+    expect(await screen.findByText('Nog geen wedstrijden aangemaakt.')).toBeInTheDocument()
   })
 
   it('shows a Dutch error message when the team cannot be fetched or created', async () => {
@@ -105,17 +155,28 @@ describe('HomeScreen', () => {
       getOrCreateMyTeam: vi.fn().mockRejectedValue(new Error('permission denied for table team')),
     }
 
-    render(
-      <HomeScreen
-        authService={fakeAuthService()}
-        teamService={teamService}
-        spelerService={fakeSpelerService()}
-        wedstrijdService={fakeWedstrijdService()}
-        aanwezigheidService={fakeAanwezigheidService()}
-        opstellingService={fakeOpstellingService()}
-      />,
-    )
+    renderHomeScreen({ teamService })
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/niet gelukt/i)
+  })
+
+  it('always offers Uitloggen, even while the team is still loading', async () => {
+    const authService = fakeAuthService()
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <HomeScreen
+          authService={authService}
+          teamService={fakeTeamService()}
+          spelerService={fakeSpelerService()}
+          wedstrijdService={fakeWedstrijdService()}
+          aanwezigheidService={fakeAanwezigheidService()}
+          opstellingService={fakeOpstellingService()}
+        />
+      </MemoryRouter>,
+    )
+
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /uitloggen/i }))
+    expect(authService.signOut).toHaveBeenCalled()
   })
 })

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import type { FitheidStatus, Speler, Wedstrijd } from '../../data/types'
 import { DEFAULT_FORMATIE } from '../../data/types'
 import type { NewWedstrijdInput, WedstrijdService } from '../../data/wedstrijdService'
@@ -84,20 +85,61 @@ function fakeOpstellingService(overrides: Partial<OpstellingService> = {}): Opst
   }
 }
 
-describe('WedstrijdScreen', () => {
-  it('offers 1-3-3-1 (preselected) and 1-2-3-2 for 8-tegen-8, the default formaat', async () => {
-    render(
-      <WedstrijdScreen
-        wedstrijdService={createFakeWedstrijdService()}
-        spelerService={fakeSpelerService()}
-        aanwezigheidService={fakeAanwezigheidService()}
-        opstellingService={fakeOpstellingService()}
-        teamId="team-1"
-      />,
-    )
+interface RenderWedstrijdScreenOptions {
+  wedstrijdService?: WedstrijdService
+  spelerService?: SpelerService
+  aanwezigheidService?: AanwezigheidService
+  opstellingService?: OpstellingService
+  initialEntries?: string[]
+}
+
+/** `WedstrijdScreen` owns its own routes (index/nieuw/:id) — mount it under a `*` route, like it's mounted at `/wedstrijden/*` in the real app, so relative `Link`s inside it resolve correctly. */
+function renderWedstrijdScreen({
+  wedstrijdService = createFakeWedstrijdService(),
+  spelerService = fakeSpelerService(),
+  aanwezigheidService = fakeAanwezigheidService(),
+  opstellingService = fakeOpstellingService(),
+  initialEntries = ['/wedstrijden'],
+}: RenderWedstrijdScreenOptions = {}) {
+  render(
+    <MemoryRouter initialEntries={initialEntries}>
+      <Routes>
+        <Route
+          path="/wedstrijden/*"
+          element={
+            <WedstrijdScreen
+              wedstrijdService={wedstrijdService}
+              spelerService={spelerService}
+              aanwezigheidService={aanwezigheidService}
+              opstellingService={opstellingService}
+              teamId="team-1"
+            />
+          }
+        />
+      </Routes>
+    </MemoryRouter>,
+  )
+  return { wedstrijdService, spelerService, aanwezigheidService, opstellingService }
+}
+
+describe('WedstrijdScreen — list (/wedstrijden)', () => {
+  it('shows only the list — no creation form on this screen — and a "+" link to the new-match screen', async () => {
+    renderWedstrijdScreen()
     await screen.findByText(/nog geen wedstrijden/i)
 
-    const formatieSelect = screen.getByLabelText('Formatie') as HTMLSelectElement
+    expect(screen.queryByRole('form', { name: /nieuwe wedstrijd aanmaken/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /nieuwe wedstrijd/i })).toHaveAttribute('href', '/wedstrijden/nieuw')
+  })
+})
+
+describe('WedstrijdScreen — new match (/wedstrijden/nieuw)', () => {
+  it('offers 1-3-3-1 (preselected) and 1-2-3-2 for 8-tegen-8, the default formaat', async () => {
+    const user = userEvent.setup()
+    renderWedstrijdScreen()
+    await screen.findByText(/nog geen wedstrijden/i)
+    await user.click(screen.getByRole('link', { name: /nieuwe wedstrijd/i }))
+
+    const formatieSelect = await screen.findByLabelText('Formatie') as HTMLSelectElement
     const options = Array.from(formatieSelect.options).map((option) => option.value)
 
     expect(options).toEqual(['1-3-3-1', '1-2-3-2'])
@@ -106,18 +148,9 @@ describe('WedstrijdScreen', () => {
 
   it('switches the formatie options to 1-4-3-3 (preselected) and 1-4-4-2 when 11-tegen-11 is picked', async () => {
     const user = userEvent.setup()
-    render(
-      <WedstrijdScreen
-        wedstrijdService={createFakeWedstrijdService()}
-        spelerService={fakeSpelerService()}
-        aanwezigheidService={fakeAanwezigheidService()}
-        opstellingService={fakeOpstellingService()}
-        teamId="team-1"
-      />,
-    )
-    await screen.findByText(/nog geen wedstrijden/i)
+    renderWedstrijdScreen({ initialEntries: ['/wedstrijden/nieuw'] })
 
-    await user.selectOptions(screen.getByLabelText('Formaat'), '11v11')
+    await user.selectOptions(await screen.findByLabelText('Formaat'), '11v11')
 
     const formatieSelect = screen.getByLabelText('Formatie') as HTMLSelectElement
     const options = Array.from(formatieSelect.options).map((option) => option.value)
@@ -126,24 +159,17 @@ describe('WedstrijdScreen', () => {
     expect(formatieSelect.value).toBe('1-4-3-3')
   })
 
-  it('creates a match with only date + format filled in, and shows it in the list', async () => {
+  it('creates a match with only date + format filled in, and returns to the list showing it', async () => {
     const user = userEvent.setup()
-    const wedstrijdService = createFakeWedstrijdService()
-    render(
-      <WedstrijdScreen
-        wedstrijdService={wedstrijdService}
-        spelerService={fakeSpelerService()}
-        aanwezigheidService={fakeAanwezigheidService()}
-        opstellingService={fakeOpstellingService()}
-        teamId="team-1"
-      />,
-    )
-    await screen.findByText(/nog geen wedstrijden/i)
+    const { wedstrijdService } = renderWedstrijdScreen({ initialEntries: ['/wedstrijden/nieuw'] })
 
-    fireEvent.change(screen.getByLabelText('Datum'), { target: { value: '2026-09-20' } })
+    fireEvent.change(await screen.findByLabelText('Datum'), { target: { value: '2026-09-20' } })
     await user.click(screen.getByRole('button', { name: /wedstrijd aanmaken/i }))
 
-    expect(await screen.findByText(/2026-09-20/)).toBeInTheDocument()
+    // Back on the list screen (own URL, not inline under the form). A longer
+    // timeout: react-router wraps the post-submit navigate() in its own
+    // transition, on top of the create+refetch awaits already in flight.
+    expect(await screen.findByText(/2026-09-20/, {}, { timeout: 5000 })).toBeInTheDocument()
     expect(screen.getByRole('listitem')).toHaveTextContent('2026-09-20 — 8-tegen-8 — 1-3-3-1')
     expect(wedstrijdService.create).toHaveBeenCalledWith({
       teamId: 'team-1',
@@ -153,26 +179,19 @@ describe('WedstrijdScreen', () => {
     })
   })
 
-  it('creates an 11-tegen-11 match with the alternative formation and shows it in the list', async () => {
+  it('creates an 11-tegen-11 match with the alternative formation', async () => {
     const user = userEvent.setup()
-    const wedstrijdService = createFakeWedstrijdService()
-    render(
-      <WedstrijdScreen
-        wedstrijdService={wedstrijdService}
-        spelerService={fakeSpelerService()}
-        aanwezigheidService={fakeAanwezigheidService()}
-        opstellingService={fakeOpstellingService()}
-        teamId="team-1"
-      />,
-    )
-    await screen.findByText(/nog geen wedstrijden/i)
+    const { wedstrijdService } = renderWedstrijdScreen({ initialEntries: ['/wedstrijden/nieuw'] })
 
-    fireEvent.change(screen.getByLabelText('Datum'), { target: { value: '2026-03-14' } })
+    fireEvent.change(await screen.findByLabelText('Datum'), { target: { value: '2026-03-14' } })
     await user.selectOptions(screen.getByLabelText('Formaat'), '11v11')
     await user.selectOptions(screen.getByLabelText('Formatie'), '1-4-4-2')
     await user.click(screen.getByRole('button', { name: /wedstrijd aanmaken/i }))
 
-    expect(await screen.findByText(/1-4-4-2/)).toBeInTheDocument()
+    // Scoped to a listitem, not findByText(/1-4-4-2/): that regex also
+    // matches the still-mounted Formatie <option value="1-4-4-2">, so a bare
+    // text search can resolve to that stale option instead of the list row.
+    expect(await screen.findByRole('listitem', {}, { timeout: 5000 })).toHaveTextContent('1-4-4-2')
     expect(wedstrijdService.create).toHaveBeenCalledWith({
       teamId: 'team-1',
       datum: '2026-03-14',
@@ -182,18 +201,9 @@ describe('WedstrijdScreen', () => {
   })
 
   it('requires a date (enforced by the form)', async () => {
-    render(
-      <WedstrijdScreen
-        wedstrijdService={createFakeWedstrijdService()}
-        spelerService={fakeSpelerService()}
-        aanwezigheidService={fakeAanwezigheidService()}
-        opstellingService={fakeOpstellingService()}
-        teamId="team-1"
-      />,
-    )
-    await screen.findByText(/nog geen wedstrijden/i)
+    renderWedstrijdScreen({ initialEntries: ['/wedstrijden/nieuw'] })
 
-    expect(screen.getByLabelText('Datum')).toBeRequired()
+    expect(await screen.findByLabelText('Datum')).toBeRequired()
   })
 })
 
@@ -233,31 +243,29 @@ describe('WedstrijdScreen — selecting a match', () => {
     createdAt: '2026-01-01T00:00:00Z',
   }
 
-  it('opens the match-detail view (attendance UI) when a match row is clicked, and closes it again when clicked once more', async () => {
+  it('navigates to the match-detail screen (its own URL) when a match row is clicked, and back to the list via the back link', async () => {
     const user = userEvent.setup()
     const wedstrijdService: WedstrijdService = {
       list: vi.fn().mockResolvedValue([bestaandeWedstrijd]),
       create: vi.fn(),
       updateKwartDuur: vi.fn(),
     }
-    render(
-      <WedstrijdScreen
-        wedstrijdService={wedstrijdService}
-        spelerService={fakeSpelerService({ list: vi.fn().mockResolvedValue(spelers) })}
-        aanwezigheidService={fakeAanwezigheidService()}
-        opstellingService={fakeOpstellingService()}
-        teamId="team-1"
-      />,
-    )
+    renderWedstrijdScreen({
+      wedstrijdService,
+      spelerService: fakeSpelerService({ list: vi.fn().mockResolvedValue(spelers) }),
+    })
 
-    const matchRow = await screen.findByRole('button', { name: /2026-09-20 — 8-tegen-8 — 1-3-3-1/ })
+    const matchRow = await screen.findByRole('link', { name: /2026-09-20 — 8-tegen-8 — 1-3-3-1/ })
     expect(screen.queryByText('Aanwezigheid')).not.toBeInTheDocument()
 
     await user.click(matchRow)
-    expect(await screen.findByText('Aanwezigheid')).toBeInTheDocument()
+    expect(await screen.findByRole('link', { name: 'Aanwezigheid' })).toBeInTheDocument()
+    // Opstelling is the default/landing sub-tab.
+    expect(screen.getByRole('link', { name: 'Opstelling' })).toHaveClass('actief')
 
-    await user.click(matchRow)
-    expect(screen.queryByText('Aanwezigheid')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('link', { name: /terug naar wedstrijden/i }))
+    expect(await screen.findByText(/nog geen wedstrijden|2026-09-20/i)).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Aanwezigheid' })).not.toBeInTheDocument()
   })
 
   it('defaults every active player to aanwezig, lets the coach mark one afgemeld and set a fitheid status, and reflects both', async () => {
@@ -304,24 +312,21 @@ describe('WedstrijdScreen — selecting a match', () => {
       }),
     }
 
-    render(
-      <WedstrijdScreen
-        wedstrijdService={wedstrijdService}
-        spelerService={fakeSpelerService({ list: vi.fn().mockResolvedValue(spelers) })}
-        aanwezigheidService={aanwezigheidService}
-        opstellingService={fakeOpstellingService()}
-        teamId="team-1"
-      />,
-    )
+    renderWedstrijdScreen({
+      wedstrijdService,
+      spelerService: fakeSpelerService({ list: vi.fn().mockResolvedValue(spelers) }),
+      aanwezigheidService,
+    })
 
-    await user.click(await screen.findByRole('button', { name: /2026-09-20 — 8-tegen-8 — 1-3-3-1/ }))
-    await screen.findByText('Aanwezigheid')
+    await user.click(await screen.findByRole('link', { name: /2026-09-20 — 8-tegen-8 — 1-3-3-1/ }))
+    await user.click(await screen.findByRole('link', { name: 'Aanwezigheid' }))
+    await screen.findByText('Jan Jansen')
     // Scoped to AanwezigheidScreen: OpstellingScreen's wisselbank (a sibling
-    // section) shows the same player names in its own bench buttons.
-    const aanwezigheid = within(screen.getByText('Aanwezigheid').closest('section')!)
+    // sub-tab) shows the same player names in its own bench buttons.
+    const aanwezigheid = within(screen.getByText('Jan Jansen').closest('section')!)
 
     // Both active players default to aanwezig with no action needed.
-    const janRow = (await aanwezigheid.findByText('Jan Jansen')).closest('li')!
+    const janRow = aanwezigheid.getByText('Jan Jansen').closest('li')!
     const pietRow = aanwezigheid.getByText('Piet Peters').closest('li')!
     expect(janRow).toHaveTextContent('Aanwezig')
     expect(pietRow).toHaveTextContent('Aanwezig')

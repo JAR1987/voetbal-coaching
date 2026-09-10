@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useState } from 'react'
-import type { FormEvent } from 'react'
-import type { WedstrijdService } from '../data/wedstrijdService'
+import { Link, Navigate, Route, Routes, useParams } from 'react-router-dom'
 import type { SpelerService } from '../data/spelerService'
 import type { AanwezigheidService } from '../data/aanwezigheidService'
 import type { OpstellingService } from '../data/opstellingService'
-import type { Formaat, Formatie, Wedstrijd } from '../data/types'
-import { DEFAULT_FORMATIE, FORMATIE_OPTIONS, FORMAAT_LABELS } from '../data/types'
+import type { Wedstrijd } from '../data/types'
+import { FORMAAT_LABELS } from '../data/types'
+import type { WedstrijdService } from '../data/wedstrijdService'
 import { MatchDetailScreen } from './MatchDetailScreen'
+import { NewWedstrijdScreen } from './NewWedstrijdScreen'
 
 interface WedstrijdScreenProps {
   wedstrijdService: WedstrijdService
@@ -17,35 +18,18 @@ interface WedstrijdScreenProps {
 }
 
 /**
- * Wedstrijdenlijst voor één team: een nieuwe wedstrijd aanmaken (datum +
- * formaat + formatie), de al aangemaakte wedstrijden zien, en er één openen
- * om het detailscherm te zien (aanwezigheid + fitheid, zie
- * `MatchDetailScreen`/`AanwezigheidScreen` — ticket "Aanwezigheid +
- * fitheid-status", jt-dvh.14.4).
- *
- * Het seizoen wordt automatisch bepaald/aangemaakt door wedstrijdService
- * (zie seizoenService.getOrCreateSeasonForDate) — er is bewust geen
- * seizoen-keuze in dit scherm.
- *
- * Een wedstrijd "openen" is bewust geen router/route: `selectedWedstrijdId`
- * is gewoon lokale state, en het detailscherm wordt eronder getoond (of in
- * elk geval niet als aparte pagina) zolang er nog maar één scherm is om naar
- * terug te keren — zelfde "geen router nodig" filosofie als ticket 1
- * (zie `App.tsx`). `MatchDetailScreen` beslist zelf wat het detailscherm
- * laat zien; dit scherm hoeft daar niets van te weten.
+ * Wedstrijden-sectie voor één team, gemount op `/wedstrijden/*`: de lijst
+ * (index), een eigen "nieuwe wedstrijd"-scherm (`nieuw`, zie
+ * `NewWedstrijdScreen`), en een eigen route per wedstrijd (`:wedstrijdId/*`,
+ * zie `MatchDetailScreen`) — elk zijn eigen scherm/URL in plaats van onder
+ * elkaar gestapeld op één pagina. Het seizoen wordt automatisch
+ * bepaald/aangemaakt door wedstrijdService (zie
+ * seizoenService.getOrCreateSeasonForDate) — bewust geen seizoen-keuze hier.
  */
 export function WedstrijdScreen({ wedstrijdService, spelerService, aanwezigheidService, opstellingService, teamId }: WedstrijdScreenProps) {
   const [wedstrijden, setWedstrijden] = useState<Wedstrijd[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [selectedWedstrijdId, setSelectedWedstrijdId] = useState<string | null>(null)
-  const selectedWedstrijd = wedstrijden.find((wedstrijd) => wedstrijd.id === selectedWedstrijdId) ?? null
-
-  const [datum, setDatum] = useState('')
-  const [formaat, setFormaat] = useState<Formaat>('8v8')
-  const [formatie, setFormatie] = useState<Formatie>(DEFAULT_FORMATIE['8v8'])
-  const [addError, setAddError] = useState<string | null>(null)
-  const [submitting, setSubmitting] = useState(false)
 
   const loadWedstrijden = useCallback(async () => {
     setLoading(true)
@@ -67,41 +51,47 @@ export function WedstrijdScreen({ wedstrijdService, spelerService, aanwezigheidS
     loadWedstrijden()
   }, [loadWedstrijden])
 
-  function handleSelectWedstrijd(id: string) {
-    // Toggle: clicking the already-selected match closes its detail view
-    // again, rather than needing a separate close-only affordance for that.
-    setSelectedWedstrijdId((current) => (current === id ? null : id))
-  }
+  return (
+    <Routes>
+      <Route index element={<WedstrijdLijst wedstrijden={wedstrijden} loading={loading} error={error} />} />
+      <Route
+        path="nieuw"
+        element={<NewWedstrijdScreen wedstrijdService={wedstrijdService} teamId={teamId} onCreated={loadWedstrijden} />}
+      />
+      <Route
+        path=":wedstrijdId/*"
+        element={
+          <WedstrijdDetailRoute
+            wedstrijden={wedstrijden}
+            loading={loading}
+            teamId={teamId}
+            spelerService={spelerService}
+            aanwezigheidService={aanwezigheidService}
+            opstellingService={opstellingService}
+            wedstrijdService={wedstrijdService}
+          />
+        }
+      />
+    </Routes>
+  )
+}
 
-  function handleFormaatChange(next: Formaat) {
-    setFormaat(next)
-    // The formatie options depend on formaat — reset to the new format's
-    // default rather than keeping a formatie that may not even be valid for
-    // it (e.g. switching from 8v8's 1-2-3-2 to 11v11 shouldn't keep 1-2-3-2
-    // selected).
-    setFormatie(DEFAULT_FORMATIE[next])
-  }
+interface WedstrijdLijstProps {
+  wedstrijden: Wedstrijd[]
+  loading: boolean
+  error: string | null
+}
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    setAddError(null)
-    setSubmitting(true)
-    try {
-      await wedstrijdService.create({ teamId, datum, formaat, formatie })
-      setDatum('')
-      setFormaat('8v8')
-      setFormatie(DEFAULT_FORMATIE['8v8'])
-      await loadWedstrijden()
-    } catch {
-      setAddError('Wedstrijd aanmaken is niet gelukt. Controleer de datum.')
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
+/** De lijst-only weergave op `/wedstrijden` — aanmaken gebeurt op zijn eigen scherm, zie de "+"-link hieronder naar `nieuw`. */
+function WedstrijdLijst({ wedstrijden, loading, error }: WedstrijdLijstProps) {
   return (
     <section className="wedstrijd-screen">
-      <h2>Wedstrijden</h2>
+      <header className="wedstrijd-screen-header">
+        <h2>Wedstrijden</h2>
+        <Link to="/wedstrijden/nieuw" className="wedstrijd-nieuw-knop" aria-label="Nieuwe wedstrijd">
+          +
+        </Link>
+      </header>
 
       {error && (
         <p role="alert" className="wedstrijd-list-error">
@@ -117,75 +107,55 @@ export function WedstrijdScreen({ wedstrijdService, spelerService, aanwezigheidS
         <ul className="wedstrijd-list">
           {wedstrijden.map((wedstrijd) => (
             <li key={wedstrijd.id}>
-              <button
-                type="button"
-                className="wedstrijd-list-item"
-                aria-pressed={selectedWedstrijdId === wedstrijd.id}
-                onClick={() => handleSelectWedstrijd(wedstrijd.id)}
-              >
+              <Link to={`/wedstrijden/${wedstrijd.id}`} className="wedstrijd-list-item">
                 {wedstrijd.datum} — {FORMAAT_LABELS[wedstrijd.formaat]} — {wedstrijd.formatie}
-              </button>
+              </Link>
             </li>
           ))}
         </ul>
       )}
-
-      {selectedWedstrijd && (
-        <MatchDetailScreen
-          wedstrijd={selectedWedstrijd}
-          teamId={teamId}
-          spelerService={spelerService}
-          aanwezigheidService={aanwezigheidService}
-          opstellingService={opstellingService}
-          wedstrijdService={wedstrijdService}
-          onSluiten={() => setSelectedWedstrijdId(null)}
-        />
-      )}
-
-      <h3>Nieuwe wedstrijd</h3>
-      <form onSubmit={handleSubmit} aria-label="Nieuwe wedstrijd aanmaken" className="add-wedstrijd-form">
-        <label htmlFor="wedstrijd-datum">Datum</label>
-        <input
-          id="wedstrijd-datum"
-          type="date"
-          required
-          value={datum}
-          onChange={(event) => setDatum(event.target.value)}
-        />
-
-        <label htmlFor="wedstrijd-formaat">Formaat</label>
-        <select
-          id="wedstrijd-formaat"
-          value={formaat}
-          onChange={(event) => handleFormaatChange(event.target.value as Formaat)}
-        >
-          <option value="8v8">8-tegen-8</option>
-          <option value="11v11">11-tegen-11</option>
-        </select>
-
-        <label htmlFor="wedstrijd-formatie">Formatie</label>
-        <select
-          id="wedstrijd-formatie"
-          value={formatie}
-          onChange={(event) => setFormatie(event.target.value as Formatie)}
-        >
-          {FORMATIE_OPTIONS[formaat].map((optie) => (
-            <option key={optie} value={optie}>
-              {optie}
-            </option>
-          ))}
-        </select>
-
-        {addError && (
-          <p role="alert" className="add-wedstrijd-error">
-            {addError}
-          </p>
-        )}
-
-        <button type="submit" disabled={submitting}>
-          {submitting ? 'Bezig met aanmaken…' : 'Wedstrijd aanmaken'}
-        </button>
-      </form>
     </section>
+  )
+}
+
+interface WedstrijdDetailRouteProps {
+  wedstrijden: Wedstrijd[]
+  loading: boolean
+  teamId: string
+  spelerService: SpelerService
+  aanwezigheidService: AanwezigheidService
+  opstellingService: OpstellingService
+  wedstrijdService: WedstrijdService
+}
+
+/** Zoekt de wedstrijd bij `:wedstrijdId` op in de al opgehaalde lijst en toont `MatchDetailScreen` ervoor — terug naar de lijst als hij (nog) niet bestaat. */
+function WedstrijdDetailRoute({
+  wedstrijden,
+  loading,
+  teamId,
+  spelerService,
+  aanwezigheidService,
+  opstellingService,
+  wedstrijdService,
+}: WedstrijdDetailRouteProps) {
+  const { wedstrijdId } = useParams<{ wedstrijdId: string }>()
+  const wedstrijd = wedstrijden.find((item) => item.id === wedstrijdId) ?? null
+
+  if (loading) {
+    return <p>Wedstrijd laden…</p>
+  }
+  if (!wedstrijd) {
+    return <Navigate to="/wedstrijden" replace />
+  }
+
+  return (
+    <MatchDetailScreen
+      wedstrijd={wedstrijd}
+      teamId={teamId}
+      spelerService={spelerService}
+      aanwezigheidService={aanwezigheidService}
+      opstellingService={opstellingService}
+      wedstrijdService={wedstrijdService}
+    />
   )
 }
