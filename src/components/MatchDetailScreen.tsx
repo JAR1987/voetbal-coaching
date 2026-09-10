@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link, NavLink, Navigate, Route, Routes } from 'react-router-dom'
 import type { AanwezigheidService } from '../data/aanwezigheidService'
 import type { OpstellingService } from '../data/opstellingService'
 import type { SpelerService } from '../data/spelerService'
@@ -19,25 +20,17 @@ interface MatchDetailScreenProps {
   aanwezigheidService: AanwezigheidService
   opstellingService: OpstellingService
   wedstrijdService: WedstrijdService
-  onSluiten: () => void
 }
 
 /**
- * Detail view for one selected match, opened from `WedstrijdScreen` by
- * clicking a row in the match list (see `selectedWedstrijdId` there — there
- * is still no router, per the app's "keep it simple" philosophy from ticket
- * 1; a plain bit of lifted state is enough).
+ * Detail view for one match, reached via `/wedstrijden/:wedstrijdId` (see
+ * `WedstrijdScreen`'s nested routes for the id-lookup). Owns the header and
+ * the Opstelling/Aanwezigheid sub-tab bar; Opstelling is the default/landing
+ * sub-tab (bare `/wedstrijden/:id` redirects to it below).
  *
- * IMPORTANT for whoever builds the next ticket ("Wedstrijdgegevens
- * vastleggen" — editing tegenstander/score/thuis-uit): this component is
- * deliberately a thin composer of sibling sub-sections, not one monolithic
- * block, exactly so that ticket can slot its own section in here without
- * touching `AanwezigheidScreen` at all. Add your section as another sibling
- * next to `<AanwezigheidScreen />` below (e.g. `<WedstrijdGegevensScreen
- * wedstrijd={wedstrijd} ... />`), and extend `MatchDetailScreenProps` with
- * whatever that section needs (e.g. a `wedstrijdService` + an update
- * callback to refresh `wedstrijd` in the parent list). Resist the urge to
- * inline everything into one big return block here.
+ * A future section (e.g. "Wedstrijdgegevens vastleggen") becomes its own
+ * sub-route + tab here, not another sibling pasted into one return block —
+ * add a `<Route path="gegevens" element={...} />` and a matching tab.
  */
 export function MatchDetailScreen({
   wedstrijd,
@@ -46,31 +39,79 @@ export function MatchDetailScreen({
   aanwezigheidService,
   opstellingService,
   wedstrijdService,
-  onSluiten,
 }: MatchDetailScreenProps) {
-  // Owned here, not in OpstellingScreen, so a later ticket (share feature)
-  // can read "which kwart is actief" without reaching into that component.
-  const [kwart, setKwart] = useState<number>(1)
+  // Absolute, not relative: this mounts several splat-routes deep, where
+  // relative-link resolution compounds per nested `<Routes>` instead of
+  // staying anchored.
+  const basePath = `/wedstrijden/${wedstrijd.id}`
 
   return (
     <section className="match-detail-screen" aria-label="Wedstrijddetail">
       <header className="match-detail-header">
-        <button type="button" onClick={onSluiten}>
-          &larr; Terug naar wedstrijden
-        </button>
+        <Link to="/wedstrijden">&larr; Terug naar wedstrijden</Link>
         <h3>
           {wedstrijd.datum} — {FORMAAT_LABELS[wedstrijd.formaat]} — {wedstrijd.formatie}
         </h3>
       </header>
 
-      <KwartTimer wedstrijd={wedstrijd} wedstrijdService={wedstrijdService} />
+      <nav className="match-detail-tabs" aria-label="Wedstrijdonderdeel">
+        <NavLink to={`${basePath}/opstelling`} className={({ isActive }) => `match-detail-tab${isActive ? ' actief' : ''}`}>
+          Opstelling
+        </NavLink>
+        <NavLink to={`${basePath}/aanwezigheid`} className={({ isActive }) => `match-detail-tab${isActive ? ' actief' : ''}`}>
+          Aanwezigheid
+        </NavLink>
+      </nav>
 
-      <AanwezigheidScreen
-        aanwezigheidService={aanwezigheidService}
-        spelerService={spelerService}
-        wedstrijdId={wedstrijd.id}
-        teamId={teamId}
-      />
+      <Routes>
+        <Route index element={<Navigate to="opstelling" replace />} />
+        <Route
+          path="opstelling"
+          element={
+            <OpstellingTab
+              wedstrijd={wedstrijd}
+              teamId={teamId}
+              spelerService={spelerService}
+              aanwezigheidService={aanwezigheidService}
+              opstellingService={opstellingService}
+              wedstrijdService={wedstrijdService}
+            />
+          }
+        />
+        <Route
+          path="aanwezigheid"
+          element={
+            <AanwezigheidScreen
+              aanwezigheidService={aanwezigheidService}
+              spelerService={spelerService}
+              wedstrijdId={wedstrijd.id}
+              teamId={teamId}
+            />
+          }
+        />
+      </Routes>
+    </section>
+  )
+}
+
+interface OpstellingTabProps {
+  wedstrijd: Wedstrijd
+  teamId: string
+  spelerService: SpelerService
+  aanwezigheidService: AanwezigheidService
+  opstellingService: OpstellingService
+  wedstrijdService: WedstrijdService
+}
+
+/** Content of the Opstelling sub-tab — kwart-tabs, timer and share stay in-screen state, no own routes. */
+function OpstellingTab({ wedstrijd, teamId, spelerService, aanwezigheidService, opstellingService, wedstrijdService }: OpstellingTabProps) {
+  // Owned here, not in OpstellingScreen, so the share feature can read
+  // "which kwart is actief" without reaching into that component.
+  const [kwart, setKwart] = useState<number>(1)
+
+  return (
+    <>
+      <KwartTimer wedstrijd={wedstrijd} wedstrijdService={wedstrijdService} />
 
       <div className="kwart-switcher" role="tablist" aria-label="Kwart">
         {KWARTEN.map((k) => (
@@ -87,7 +128,6 @@ export function MatchDetailScreen({
         ))}
       </div>
 
-      {/* Ticket jt-dvh.14.9 "Delen van de opstelling" — own sibling section. */}
       <DeelOpstellingKnop wedstrijd={wedstrijd} teamId={teamId} kwart={kwart} opstellingService={opstellingService} spelerService={spelerService} />
 
       <OpstellingScreen
@@ -98,12 +138,6 @@ export function MatchDetailScreen({
         teamId={teamId}
         kwart={kwart}
       />
-
-      {/*
-        Later ticket ("Wedstrijdgegevens vastleggen") adds a sibling section
-        here, e.g.:
-          <WedstrijdGegevensScreen wedstrijd={wedstrijd} ... />
-      */}
-    </section>
+    </>
   )
 }

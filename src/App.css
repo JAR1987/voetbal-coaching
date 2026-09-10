@@ -78,6 +78,91 @@
   width: 100%;
 }
 
+.home-header {
+  display: flex;
+  justify-content: flex-end;
+  width: 100%;
+}
+
+.home-content {
+  width: 100%;
+  /* Room for the fixed .tab-bar below so it never covers the last row. */
+  padding-bottom: 4rem;
+}
+
+.tab-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  background: var(--color-bg);
+  border-top: 1px solid var(--color-border);
+  /* AC 8: keeps the bar clear of the iPhone home-indicator (viewport-fit=cover in index.html). */
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.tab-bar-item {
+  flex: 1;
+  padding: 0.75rem 0;
+  text-align: center;
+  text-decoration: none;
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.tab-bar-item.actief {
+  color: var(--color-accent);
+}
+
+.wedstrijd-screen-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.wedstrijd-nieuw-knop {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+  text-decoration: none;
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.match-detail-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  width: 100%;
+}
+
+.match-detail-tabs {
+  display: flex;
+  gap: 0.5rem;
+  width: 100%;
+  border-bottom: 1px solid var(--color-border);
+  margin: 0.5rem 0;
+}
+
+.match-detail-tab {
+  padding: 0.5rem 0.75rem;
+  text-decoration: none;
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.match-detail-tab.actief {
+  color: var(--color-accent);
+  border-bottom: 2px solid var(--color-accent);
+}
+
 .player-list-screen {
   width: 100%;
   text-align: left;

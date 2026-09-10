@@ -1,3 +1,4 @@
+import { BrowserRouter, MemoryRouter, Navigate, Route, Routes } from 'react-router-dom'
 import type { AuthService } from './data/authService'
 import type { TeamService } from './data/teamService'
 import type { SpelerService } from './data/spelerService'
@@ -16,15 +17,25 @@ export interface AppProps {
   wedstrijdService: WedstrijdService
   aanwezigheidService: AanwezigheidService
   opstellingService: OpstellingService
+  /** Test-only: renders with `MemoryRouter` at these entries instead of `BrowserRouter`. */
+  initialEntries?: string[]
 }
 
 /**
- * Top-level screen switch: logged-out coaches always see the login screen,
- * logged-in coaches see the home screen (team + player list + matches). No
- * router yet — there's only one real screen so far, later tickets can
- * introduce one once there's somewhere else to navigate to.
+ * Top-level screen switch: logged-out coaches always land on `/login`;
+ * logged-in coaches get `HomeScreen`'s tab-bar layout for everything else
+ * (`/spelers`, `/wedstrijden/...`). `initialEntries` swaps in a
+ * `MemoryRouter` for tests; production always uses `BrowserRouter`.
  */
-export function App({ authService, teamService, spelerService, wedstrijdService, aanwezigheidService, opstellingService }: AppProps) {
+export function App({
+  authService,
+  teamService,
+  spelerService,
+  wedstrijdService,
+  aanwezigheidService,
+  opstellingService,
+  initialEntries,
+}: AppProps) {
   const { session, loading } = useSession(authService)
 
   if (loading) {
@@ -35,19 +46,38 @@ export function App({ authService, teamService, spelerService, wedstrijdService,
     )
   }
 
+  const routes = (
+    <Routes>
+      <Route
+        path="/login"
+        element={session ? <Navigate to="/wedstrijden" replace /> : <LoginScreen authService={authService} />}
+      />
+      <Route
+        path="/*"
+        element={
+          session ? (
+            <HomeScreen
+              authService={authService}
+              teamService={teamService}
+              spelerService={spelerService}
+              wedstrijdService={wedstrijdService}
+              aanwezigheidService={aanwezigheidService}
+              opstellingService={opstellingService}
+            />
+          ) : (
+            <Navigate to="/login" replace />
+          )
+        }
+      />
+    </Routes>
+  )
+
   return (
     <>
-      {session ? (
-        <HomeScreen
-          authService={authService}
-          teamService={teamService}
-          spelerService={spelerService}
-          wedstrijdService={wedstrijdService}
-          aanwezigheidService={aanwezigheidService}
-          opstellingService={opstellingService}
-        />
+      {initialEntries ? (
+        <MemoryRouter initialEntries={initialEntries}>{routes}</MemoryRouter>
       ) : (
-        <LoginScreen authService={authService} />
+        <BrowserRouter>{routes}</BrowserRouter>
       )}
       <p className="build-info">v{__APP_VERSION__}</p>
     </>

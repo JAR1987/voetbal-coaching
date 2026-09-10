@@ -1,5 +1,6 @@
-import { describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import type { Session } from '@supabase/supabase-js'
 import type { AuthService } from './data/authService'
 import type { TeamService } from './data/teamService'
@@ -58,10 +59,8 @@ function fakeWedstrijdService(overrides: Partial<WedstrijdService> = {}): Wedstr
 }
 
 // Only needs to satisfy WedstrijdScreen/AanwezigheidScreen's own mount-time
-// wiring for these App-level tests — aanwezigheidService and the new
-// selectable-match UI each have their own dedicated tests
-// (src/data/__tests__/aanwezigheidService.test.ts,
-// src/components/__tests__/AanwezigheidScreen.test.tsx).
+// wiring for these App-level tests — the selectable-match UI has its own
+// dedicated tests (see AanwezigheidScreen.test.tsx).
 function fakeAanwezigheidService(overrides: Partial<AanwezigheidService> = {}): AanwezigheidService {
   return {
     listForMatch: vi.fn().mockResolvedValue([]),
@@ -85,38 +84,45 @@ function fakeOpstellingService(overrides: Partial<OpstellingService> = {}): Opst
   }
 }
 
+function renderApp(overrides: Partial<Parameters<typeof App>[0]> = {}) {
+  return render(
+    <App
+      authService={fakeAuthService()}
+      teamService={fakeTeamService()}
+      spelerService={fakeSpelerService()}
+      wedstrijdService={fakeWedstrijdService()}
+      aanwezigheidService={fakeAanwezigheidService()}
+      opstellingService={fakeOpstellingService()}
+      {...overrides}
+    />,
+  )
+}
+
 describe('App', () => {
+  // App uses a real BrowserRouter (no initialEntries override) in most of
+  // these tests, so jsdom's own history — shared across tests in this file
+  // — needs resetting each time.
+  beforeEach(() => {
+    window.history.pushState({}, '', '/')
+  })
+
   it('shows the login screen, never the home screen, when logged out', async () => {
-    render(
-      <App
-        authService={fakeAuthService()}
-        teamService={fakeTeamService()}
-        spelerService={fakeSpelerService()}
-        wedstrijdService={fakeWedstrijdService()}
-        aanwezigheidService={fakeAanwezigheidService()}
-        opstellingService={fakeOpstellingService()}
-      />,
-    )
+    renderApp()
 
     expect(await screen.findByRole('button', { name: /inloggen/i })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /uitloggen/i })).not.toBeInTheDocument()
   })
 
-  it('shows the home screen once a session is present', async () => {
+  it('shows the home screen (redirected to /wedstrijden) once a session is present', async () => {
     const session = { user: { id: 'coach-1' } } as unknown as Session
-    render(
-      <App
-        authService={fakeAuthService({ getSession: vi.fn().mockResolvedValue(session) })}
-        teamService={fakeTeamService()}
-        spelerService={fakeSpelerService()}
-        wedstrijdService={fakeWedstrijdService()}
-        aanwezigheidService={fakeAanwezigheidService()}
-        opstellingService={fakeOpstellingService()}
-      />,
-    )
+    renderApp({ authService: fakeAuthService({ getSession: vi.fn().mockResolvedValue(session) }) })
 
     expect(await screen.findByRole('button', { name: /uitloggen/i })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /inloggen/i })).not.toBeInTheDocument()
+    // The Uitloggen button (always rendered once team-loading starts) can
+    // appear before HomeScreen's own index-route redirect to /wedstrijden
+    // has actually run — await it too rather than asserting synchronously.
+    expect(await screen.findByRole('heading', { name: 'Wedstrijden' })).toBeInTheDocument()
   })
 
   it('switches from login to home when a session is restored after a reload (onAuthStateChange)', async () => {
@@ -129,20 +135,56 @@ describe('App', () => {
       }),
     })
 
-    render(
-      <App
-        authService={authService}
-        teamService={fakeTeamService()}
-        spelerService={fakeSpelerService()}
-        wedstrijdService={fakeWedstrijdService()}
-        aanwezigheidService={fakeAanwezigheidService()}
-        opstellingService={fakeOpstellingService()}
-      />,
-    )
+    renderApp({ authService })
     expect(await screen.findByRole('button', { name: /inloggen/i })).toBeInTheDocument()
 
     emitSessionChange({ user: { id: 'coach-1' } } as unknown as Session)
 
     expect(await screen.findByRole('button', { name: /uitloggen/i })).toBeInTheDocument()
+  })
+
+  it('redirects a logged-out visit to any in-app URL back to /login', async () => {
+    window.history.pushState({}, '', '/wedstrijden')
+    renderApp()
+
+    expect(await screen.findByRole('button', { name: /inloggen/i })).toBeInTheDocument()
+  })
+
+  it('redirects a logged-in visit to /login straight to /wedstrijden', async () => {
+    window.history.pushState({}, '', '/login')
+    const session = { user: { id: 'coach-1' } } as unknown as Session
+    renderApp({ authService: fakeAuthService({ getSession: vi.fn().mockResolvedValue(session) }) })
+
+    expect(await screen.findByRole('heading', { name: 'Wedstrijden' })).toBeInTheDocument()
+  })
+
+  it('keeps the build-info footer visible on both the login screen and the home screen', async () => {
+    const { unmount } = renderApp()
+    expect(await screen.findByText(/^v/)).toBeInTheDocument()
+    unmount()
+
+    const session = { user: { id: 'coach-1' } } as unknown as Session
+    renderApp({ authService: fakeAuthService({ getSession: vi.fn().mockResolvedValue(session) }) })
+    expect(await screen.findByText(/^v/)).toBeInTheDocument()
+  })
+
+  describe('browser back button', () => {
+    afterEach(() => {
+      window.history.pushState({}, '', '/')
+    })
+
+    it('goes back from Spelers to Wedstrijden using the real browser history', async () => {
+      const user = userEvent.setup()
+      const session = { user: { id: 'coach-1' } } as unknown as Session
+      renderApp({ authService: fakeAuthService({ getSession: vi.fn().mockResolvedValue(session) }) })
+      await screen.findByRole('heading', { name: 'Wedstrijden' })
+
+      await user.click(screen.getByRole('link', { name: 'Spelers' }))
+      expect(await screen.findByText('Nog geen spelers toegevoegd.')).toBeInTheDocument()
+
+      window.history.back()
+
+      await waitFor(() => expect(screen.getByText('Nog geen wedstrijden aangemaakt.')).toBeInTheDocument())
+    })
   })
 })

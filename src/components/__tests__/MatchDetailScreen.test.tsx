@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import type { AanwezigheidService, SpelerAanwezigheid } from '../../data/aanwezigheidService'
 import type { OpstellingMap, OpstellingService } from '../../data/opstellingService'
 import type { SpelerService } from '../../data/spelerService'
@@ -67,19 +68,66 @@ function fakeOpstellingService(): OpstellingService {
   }
 }
 
+interface RenderOptions {
+  initialEntries?: string[]
+}
+
+/** `MatchDetailScreen` owns its own sub-routes (opstelling/aanwezigheid) — mount it at the same `/wedstrijden/:wedstrijdId/*` shape it gets in the real app (see `WedstrijdScreen`), so its absolute tab links and nested `<Routes>` resolve exactly like they do there. */
+function renderMatchDetailScreen({ initialEntries = ['/wedstrijden/w1'] }: RenderOptions = {}) {
+  return render(
+    <MemoryRouter initialEntries={initialEntries}>
+      <Routes>
+        <Route
+          path="/wedstrijden/:wedstrijdId/*"
+          element={
+            <MatchDetailScreen
+              wedstrijd={wedstrijd}
+              teamId="team-1"
+              spelerService={fakeSpelerService()}
+              aanwezigheidService={fakeAanwezigheidService()}
+              opstellingService={fakeOpstellingService()}
+              wedstrijdService={fakeWedstrijdService()}
+            />
+          }
+        />
+      </Routes>
+    </MemoryRouter>,
+  )
+}
+
+describe('MatchDetailScreen — sub-tab navigation', () => {
+  it('redirects the bare match URL to the Opstelling sub-tab by default', async () => {
+    renderMatchDetailScreen()
+
+    expect(await screen.findByRole('link', { name: 'Opstelling' })).toHaveClass('actief')
+    expect(screen.getByRole('link', { name: 'Aanwezigheid' })).not.toHaveClass('actief')
+    // Opstelling's own content (kwart-tabs) is visible on the landing tab.
+    expect(await screen.findByRole('tab', { name: 'K1' })).toBeInTheDocument()
+  })
+
+  it('shows a back link to the match list', async () => {
+    renderMatchDetailScreen()
+
+    expect(await screen.findByRole('link', { name: /terug naar wedstrijden/i })).toHaveAttribute('href', '/wedstrijden')
+  })
+
+  it('switches to the Aanwezigheid sub-tab and back, without losing Opstelling state (still K1)', async () => {
+    const user = userEvent.setup()
+    renderMatchDetailScreen()
+    await screen.findByRole('tab', { name: 'K1' })
+
+    await user.click(screen.getByRole('link', { name: 'Aanwezigheid' }))
+    expect(await screen.findByText('Jan Jansen')).toBeInTheDocument()
+    expect(screen.queryByRole('tab', { name: 'K1' })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('link', { name: 'Opstelling' }))
+    expect(await screen.findByRole('tab', { name: 'K1' })).toHaveAttribute('aria-selected', 'true')
+  })
+})
+
 describe('MatchDetailScreen — kwart-switcher (jt-dvh.14.6)', () => {
   it('toont K1 t/m K4, met K1 actief bij openen', async () => {
-    render(
-      <MatchDetailScreen
-        wedstrijd={wedstrijd}
-        teamId="team-1"
-        spelerService={fakeSpelerService()}
-        aanwezigheidService={fakeAanwezigheidService()}
-        opstellingService={fakeOpstellingService()}
-        wedstrijdService={fakeWedstrijdService()}
-        onSluiten={vi.fn()}
-      />,
-    )
+    renderMatchDetailScreen()
 
     expect(await screen.findByRole('tab', { name: 'K1' })).toHaveAttribute('aria-selected', 'true')
     expect(screen.getByRole('tab', { name: 'K2' })).toHaveAttribute('aria-selected', 'false')
@@ -89,17 +137,7 @@ describe('MatchDetailScreen — kwart-switcher (jt-dvh.14.6)', () => {
 
   it('wisselt naar het gekozen kwart en toont diens eigen, onafhankelijke opstelling', async () => {
     const user = userEvent.setup()
-    render(
-      <MatchDetailScreen
-        wedstrijd={wedstrijd}
-        teamId="team-1"
-        spelerService={fakeSpelerService()}
-        aanwezigheidService={fakeAanwezigheidService()}
-        opstellingService={fakeOpstellingService()}
-        wedstrijdService={fakeWedstrijdService()}
-        onSluiten={vi.fn()}
-      />,
-    )
+    renderMatchDetailScreen()
     await screen.findByRole('button', { name: 'Keeper: Jan Jansen' })
 
     await user.click(screen.getByRole('tab', { name: 'K2' }))
