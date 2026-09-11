@@ -3,21 +3,26 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import type { AuthService } from '../data/authService'
 import type { TeamService } from '../data/teamService'
 import type { SpelerService } from '../data/spelerService'
+import type { SeizoenService } from '../data/seizoenService'
 import type { WedstrijdService } from '../data/wedstrijdService'
 import type { AanwezigheidService } from '../data/aanwezigheidService'
 import type { OpstellingService } from '../data/opstellingService'
+import type { StatistiekenService } from '../data/statistiekenService'
 import type { Team } from '../data/types'
 import { PlayerListScreen } from './PlayerListScreen'
 import { WedstrijdScreen } from './WedstrijdScreen'
+import { DashboardScreen } from './DashboardScreen'
 import { TabBar } from './TabBar'
 
 interface HomeScreenProps {
   authService: AuthService
   teamService: TeamService
   spelerService: SpelerService
+  seizoenService: SeizoenService
   wedstrijdService: WedstrijdService
   aanwezigheidService: AanwezigheidService
   opstellingService: OpstellingService
+  statistiekenService: StatistiekenService
 }
 
 /**
@@ -33,9 +38,11 @@ export function HomeScreen({
   authService,
   teamService,
   spelerService,
+  seizoenService,
   wedstrijdService,
   aanwezigheidService,
   opstellingService,
+  statistiekenService,
 }: HomeScreenProps) {
   const [team, setTeam] = useState<Team | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -89,6 +96,17 @@ export function HomeScreen({
                     spelerService={spelerService}
                     aanwezigheidService={aanwezigheidService}
                     opstellingService={opstellingService}
+                    teamId={team.id}
+                  />
+                }
+              />
+              <Route
+                path="dashboard"
+                element={
+                  <DashboardScreen
+                    seizoenService={seizoenService}
+                    spelerService={spelerService}
+                    statistiekenService={statistiekenService}
                     teamId={team.id}
                   />
                 }

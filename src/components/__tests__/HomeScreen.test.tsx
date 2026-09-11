@@ -5,9 +5,11 @@ import { MemoryRouter } from 'react-router-dom'
 import type { AuthService } from '../../data/authService'
 import type { TeamService } from '../../data/teamService'
 import type { SpelerService } from '../../data/spelerService'
+import type { SeizoenService } from '../../data/seizoenService'
 import type { WedstrijdService } from '../../data/wedstrijdService'
 import type { AanwezigheidService } from '../../data/aanwezigheidService'
 import type { OpstellingService } from '../../data/opstellingService'
+import type { StatistiekenService } from '../../data/statistiekenService'
 import { HomeScreen } from '../HomeScreen'
 
 function fakeAuthService(): AuthService {
@@ -69,6 +71,24 @@ function fakeOpstellingService(overrides: Partial<OpstellingService> = {}): Opst
   }
 }
 
+// Only needs to satisfy DashboardScreen's mount-time wiring for these
+// HomeScreen-level tests — seizoenService/statistiekenService each have
+// their own dedicated tests (src/data/__tests__/*.test.ts).
+function fakeSeizoenService(overrides: Partial<SeizoenService> = {}): SeizoenService {
+  return {
+    list: vi.fn().mockResolvedValue([]),
+    getOrCreateSeasonForDate: vi.fn(),
+    ...overrides,
+  }
+}
+
+function fakeStatistiekenService(overrides: Partial<StatistiekenService> = {}): StatistiekenService {
+  return {
+    berekenVoorSeizoen: vi.fn().mockResolvedValue({ perSpeler: {}, teamOverzicht: { gemiddeldeSpeeltijd: 0, regels: [] } }),
+    ...overrides,
+  }
+}
+
 interface RenderHomeScreenOptions {
   teamService: TeamService
   spelerService?: SpelerService
@@ -89,9 +109,11 @@ function renderHomeScreen({
         authService={authService}
         teamService={teamService}
         spelerService={spelerService}
+        seizoenService={fakeSeizoenService()}
         wedstrijdService={wedstrijdService}
         aanwezigheidService={fakeAanwezigheidService()}
         opstellingService={fakeOpstellingService()}
+        statistiekenService={fakeStatistiekenService()}
       />
     </MemoryRouter>,
   )
@@ -137,6 +159,15 @@ describe('HomeScreen', () => {
     expect(screen.getByRole('link', { name: 'Wedstrijden' })).not.toHaveClass('actief')
   })
 
+  it('shows the Dashboard screen as its own /dashboard route, reachable via the tab bar', async () => {
+    const user = userEvent.setup()
+    renderHomeScreen({ teamService: fakeTeamService() })
+    await screen.findByRole('heading', { name: 'Wedstrijden' })
+
+    await user.click(screen.getByRole('link', { name: 'Dashboard' }))
+    expect(await screen.findByRole('heading', { name: 'Dashboard' })).toBeInTheDocument()
+  })
+
   it('navigates between Spelers and Wedstrijden via the tab bar', async () => {
     const user = userEvent.setup()
     renderHomeScreen({ teamService: fakeTeamService() })
@@ -168,9 +199,11 @@ describe('HomeScreen', () => {
           authService={authService}
           teamService={fakeTeamService()}
           spelerService={fakeSpelerService()}
+          seizoenService={fakeSeizoenService()}
           wedstrijdService={fakeWedstrijdService()}
           aanwezigheidService={fakeAanwezigheidService()}
           opstellingService={fakeOpstellingService()}
+          statistiekenService={fakeStatistiekenService()}
         />
       </MemoryRouter>,
     )

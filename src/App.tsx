@@ -2,9 +2,11 @@ import { BrowserRouter, MemoryRouter, Navigate, Route, Routes } from 'react-rout
 import type { AuthService } from './data/authService'
 import type { TeamService } from './data/teamService'
 import type { SpelerService } from './data/spelerService'
+import type { SeizoenService } from './data/seizoenService'
 import type { WedstrijdService } from './data/wedstrijdService'
 import type { AanwezigheidService } from './data/aanwezigheidService'
 import type { OpstellingService } from './data/opstellingService'
+import type { StatistiekenService } from './data/statistiekenService'
 import { useSession } from './hooks/useSession'
 import { LoginScreen } from './components/LoginScreen'
 import { HomeScreen } from './components/HomeScreen'
@@ -14,9 +16,11 @@ export interface AppProps {
   authService: AuthService
   teamService: TeamService
   spelerService: SpelerService
+  seizoenService: SeizoenService
   wedstrijdService: WedstrijdService
   aanwezigheidService: AanwezigheidService
   opstellingService: OpstellingService
+  statistiekenService: StatistiekenService
   /** Test-only: renders with `MemoryRouter` at these entries instead of `BrowserRouter`. */
   initialEntries?: string[]
 }
@@ -31,9 +35,11 @@ export function App({
   authService,
   teamService,
   spelerService,
+  seizoenService,
   wedstrijdService,
   aanwezigheidService,
   opstellingService,
+  statistiekenService,
   initialEntries,
 }: AppProps) {
   const { session, loading } = useSession(authService)
@@ -60,9 +66,11 @@ export function App({
               authService={authService}
               teamService={teamService}
               spelerService={spelerService}
+              seizoenService={seizoenService}
               wedstrijdService={wedstrijdService}
               aanwezigheidService={aanwezigheidService}
               opstellingService={opstellingService}
+              statistiekenService={statistiekenService}
             />
           ) : (
             <Navigate to="/login" replace />
