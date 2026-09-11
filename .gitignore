@@ -23,6 +23,9 @@ logs
 *.log
 npm-debug.log*
 
+# Superpowers brainstorming visual companion
+.superpowers/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
