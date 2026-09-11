@@ -65,5 +65,7 @@ export default defineConfig({
     // repo root also picks up every parallel git worktree's copy of every
     // test file.
     exclude: ['**/node_modules/**', '**/dist/**', '**/.claude/**'],
+    // Full-suite flake fix, see jt-dvh.14.13.
+    pool: 'vmThreads',
   },
 })
