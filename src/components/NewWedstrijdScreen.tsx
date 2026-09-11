@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import type { Formaat, Formatie } from '../data/types'
@@ -25,6 +25,8 @@ export function NewWedstrijdScreen({ wedstrijdService, teamId, onCreated }: NewW
   const [formatie, setFormatie] = useState<Formatie>(DEFAULT_FORMATIE['8v8'])
   const [addError, setAddError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  // Op een submit-fout gaat focus hierheen (eerste/enige verplichte veld).
+  const datumRef = useRef<HTMLInputElement>(null)
 
   function handleFormaatChange(next: Formaat) {
     setFormaat(next)
@@ -44,6 +46,7 @@ export function NewWedstrijdScreen({ wedstrijdService, teamId, onCreated }: NewW
     } catch {
       setAddError('Wedstrijd aanmaken is niet gelukt. Controleer de datum.')
       setSubmitting(false)
+      datumRef.current?.focus()
     }
   }
 
@@ -56,8 +59,11 @@ export function NewWedstrijdScreen({ wedstrijdService, teamId, onCreated }: NewW
         <label htmlFor="wedstrijd-datum">Datum</label>
         <input
           id="wedstrijd-datum"
+          name="datum"
+          autoComplete="off"
           type="date"
           required
+          ref={datumRef}
           value={datum}
           onChange={(event) => setDatum(event.target.value)}
         />
@@ -65,6 +71,8 @@ export function NewWedstrijdScreen({ wedstrijdService, teamId, onCreated }: NewW
         <label htmlFor="wedstrijd-formaat">Formaat</label>
         <select
           id="wedstrijd-formaat"
+          name="formaat"
+          autoComplete="off"
           value={formaat}
           onChange={(event) => handleFormaatChange(event.target.value as Formaat)}
         >
@@ -75,6 +83,8 @@ export function NewWedstrijdScreen({ wedstrijdService, teamId, onCreated }: NewW
         <label htmlFor="wedstrijd-formatie">Formatie</label>
         <select
           id="wedstrijd-formatie"
+          name="formatie"
+          autoComplete="off"
           value={formatie}
           onChange={(event) => setFormatie(event.target.value as Formatie)}
         >

@@ -11,6 +11,26 @@ import { genereerWisselvoorstel } from '../data/wisselAlgoritme'
 // een gewone tik op een bezet vak (jt-dvh.14.15 review).
 const GHOST_ACTIVATIE_PX = 8
 
+/** Spiegelt `opstellingService.placeSpeler`'s afleiding (zie die functie) —
+ * meteen zichtbaar zonder op de server te wachten (optimistic UI, jt-dvh.14.16).
+ * Bij een mislukte server-call valt `plaatsSpeler` terug op een volledige `load()`. */
+function pasPlaatsingLokaalToe(map: OpstellingMap, positie: string, spelerId: string): OpstellingMap {
+  const oudePositie = Object.keys(map).find((p) => map[p] === spelerId)
+  if (oudePositie === positie) {
+    return map
+  }
+  const bezetDoor = map[positie]
+  const volgende = { ...map }
+  if (oudePositie) {
+    delete volgende[oudePositie]
+  }
+  if (bezetDoor && bezetDoor !== spelerId && oudePositie) {
+    volgende[oudePositie] = bezetDoor
+  }
+  volgende[positie] = spelerId
+  return volgende
+}
+
 interface OpstellingScreenProps {
   opstellingService: OpstellingService
   aanwezigheidService: AanwezigheidService
@@ -149,10 +169,19 @@ export function OpstellingScreen({ opstellingService, aanwezigheidService, spele
   // hieronder niet op elke render zijn document-listeners hoeft te vervangen.
   const plaatsSpeler = useCallback(
     async (positie: string, spelerId: string) => {
+      // Optimistic: de state hieronder update meteen, vóór de server-call —
+      // geen `loading`-flip dus geen "laden…"-flits per tik (jt-dvh.14.16).
+      setOpstellingPerKwart((prev) => ({
+        ...prev,
+        [kwart]: pasPlaatsingLokaalToe(prev[kwart] ?? {}, positie, spelerId),
+      }))
       try {
         await opstellingService.placeSpeler(wedstrijd.id, kwart, positie, spelerId)
-        await load()
       } catch {
+        // Mislukt: terugvallen op de server-waarheid i.p.v. de optimistische
+        // (mogelijk foute) state te laten staan. Ná `load()` pas de foutmelding
+        // zetten — `load()` zet `error` zelf eerst op `null`.
+        await load()
         setError('Speler plaatsen is niet gelukt.')
       }
     },
@@ -324,7 +353,8 @@ export function OpstellingScreen({ opstellingService, aanwezigheidService, spele
           </div>
 
           <div className="opstelling-wisselbank">
-            <h5>Wisselbank ({wisselbank.length})</h5>
+            {/* aria-live: kondigt een wijzigende wisselbank hardop aan zonder een aparte melding (jt-dvh.14.16). */}
+            <h5 aria-live="polite">Wisselbank ({wisselbank.length})</h5>
             <ul>
               {wisselbank.map((speler) => (
                 <li key={speler.id}>

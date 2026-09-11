@@ -187,6 +187,13 @@
   opacity: 0.7;
 }
 
+.player-name,
+.player-notes {
+  /* Een lange naam/opmerking (evt. één lang woord) breekt anders de layout. */
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
 .player-notes {
   margin: 0.25rem 0;
   font-size: 0.9rem;
@@ -240,6 +247,26 @@
 .opstelling-vak,
 .opstelling-wisselbank button {
   touch-action: manipulation;
+  /* Guideline-minimum tap target + een bewuste tap-flash i.p.v. de browser-default (jt-dvh.14.16). */
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.opstelling-vak {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.opstelling-vak-naam {
+  max-width: 100%;
+  /* Laat dit flex-item krimpen, anders negeert de ellipsis hieronder de overflow. */
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .opstelling-drag-ghost {

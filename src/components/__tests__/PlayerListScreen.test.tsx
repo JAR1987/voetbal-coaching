@@ -123,6 +123,78 @@ describe('PlayerListScreen', () => {
     expect(spelerService.setStatus).toHaveBeenCalledWith('s1', 'actief')
   })
 
+  it('has name attributes and a deliberate autoComplete value on the naam/rugnummer/opmerkingen fields', async () => {
+    const spelerService = createFakeSpelerService()
+    render(<PlayerListScreen spelerService={spelerService} teamId="team-1" />)
+    await waitFor(() => expect(screen.getByText(/nog geen spelers/i)).toBeInTheDocument())
+
+    expect(screen.getByLabelText('Naam')).toHaveAttribute('name', 'naam')
+    expect(screen.getByLabelText('Naam')).toHaveAttribute('autoComplete', 'off')
+    expect(screen.getByLabelText('Rugnummer')).toHaveAttribute('name', 'rugnummer')
+    expect(screen.getByLabelText('Rugnummer')).toHaveAttribute('autoComplete', 'off')
+    expect(screen.getByLabelText('Opmerkingen')).toHaveAttribute('name', 'opmerkingen')
+    expect(screen.getByLabelText('Opmerkingen')).toHaveAttribute('autoComplete', 'off')
+  })
+
+  it('moves focus to the naam field when adding a player fails, instead of only showing red text', async () => {
+    const user = userEvent.setup()
+    const spelerService = createFakeSpelerService()
+    spelerService.create = vi.fn().mockRejectedValue(new Error('constraint schending'))
+    render(<PlayerListScreen spelerService={spelerService} teamId="team-1" />)
+    await waitFor(() => expect(screen.getByText(/nog geen spelers/i)).toBeInTheDocument())
+
+    const naamInput = screen.getByLabelText('Naam')
+    await user.type(naamInput, 'Jan Jansen')
+    await user.click(screen.getByRole('button', { name: /speler toevoegen/i }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/niet gelukt/i)
+    await waitFor(() => expect(naamInput).toHaveFocus())
+  })
+
+  it('moves focus to the naam field when editing a player fails, instead of only showing red text', async () => {
+    const user = userEvent.setup()
+    const existing: Speler = {
+      id: 's1',
+      teamId: 'team-1',
+      naam: 'Kees Klaassen',
+      rugnummer: 3,
+      opmerkingen: null,
+      status: 'actief',
+      createdAt: '2026-01-01T00:00:00Z',
+    }
+    const spelerService = createFakeSpelerService([existing])
+    spelerService.update = vi.fn().mockRejectedValue(new Error('constraint schending'))
+    render(<PlayerListScreen spelerService={spelerService} teamId="team-1" />)
+    expect(await screen.findByText(/kees klaassen/i)).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /bewerken/i }))
+    const editForm = screen.getByRole('form', { name: /kees klaassen bewerken/i })
+    const naamInput = within(editForm).getByLabelText('Naam')
+    await user.click(within(editForm).getByRole('button', { name: /opslaan/i }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/niet gelukt/i)
+    await waitFor(() => expect(naamInput).toHaveFocus())
+  })
+
+  it('renders an artificially long naam/opmerkingen without erroring (layout truncation itself is CSS-only, see App.css)', async () => {
+    const langeNaam = 'A'.repeat(200)
+    const langeOpmerking = 'B'.repeat(500)
+    const existing: Speler = {
+      id: 's1',
+      teamId: 'team-1',
+      naam: langeNaam,
+      rugnummer: null,
+      opmerkingen: langeOpmerking,
+      status: 'actief',
+      createdAt: '2026-01-01T00:00:00Z',
+    }
+    const spelerService = createFakeSpelerService([existing])
+    render(<PlayerListScreen spelerService={spelerService} teamId="team-1" />)
+
+    expect(await screen.findByText(langeNaam, { exact: false })).toHaveClass('player-name')
+    expect(screen.getByText(langeOpmerking)).toHaveClass('player-notes')
+  })
+
   it('edits an existing player and shows the updated fields', async () => {
     const user = userEvent.setup()
     const existing: Speler = {

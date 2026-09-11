@@ -211,6 +211,87 @@ describe('OpstellingScreen', () => {
     expect(screen.queryByRole('button', { name: 'Jan Jansen' })).not.toBeInTheDocument()
   })
 
+  it('updates the slot immediately (optimistic) instead of flashing "Opstelling laden…" while placeSpeler is still in flight (jt-dvh.14.16)', async () => {
+    const user = userEvent.setup()
+    let vrijgeven: () => void = () => {}
+    const wachtOpVrijgave = new Promise<void>((resolve) => {
+      vrijgeven = resolve
+    })
+    const basis = createFakeOpstellingService(GEEN_AUTO_VOORSTEL)
+    const opstellingService: OpstellingService = {
+      ...basis,
+      placeSpeler: vi.fn(async (wedstrijdId: string, kwart: number, positie: string, spelerId: string) => {
+        await wachtOpVrijgave
+        await basis.placeSpeler(wedstrijdId, kwart, positie, spelerId)
+      }),
+    }
+    render(
+      <OpstellingScreen
+        opstellingService={opstellingService}
+        aanwezigheidService={fakeAanwezigheidService()}
+        spelerService={fakeSpelerService()}
+        wedstrijd={wedstrijd}
+        teamId="team-1"
+        kwart={1}
+      />,
+    )
+    await screen.findByText(/wisselbank \(3\)/i)
+
+    await user.click(screen.getByRole('button', { name: 'Jan Jansen' }))
+    await user.click(screen.getByRole('button', { name: 'Keeper: leeg' }))
+
+    // Meteen zichtbaar, terwijl placeSpeler nog wacht op vrijgave — geen "laden…"-flits.
+    expect(screen.getByRole('button', { name: 'Keeper: Jan Jansen' })).toBeInTheDocument()
+    expect(screen.queryByText('Opstelling laden…')).not.toBeInTheDocument()
+
+    vrijgeven()
+    await waitFor(() => expect(opstellingService.placeSpeler).toHaveBeenCalledWith('w1', 1, 'Keeper', 's1'))
+  })
+
+  it('rolls back to the server state and shows an error if placeSpeler fails after the optimistic update', async () => {
+    const user = userEvent.setup()
+    const basis = createFakeOpstellingService(GEEN_AUTO_VOORSTEL)
+    const opstellingService: OpstellingService = {
+      ...basis,
+      placeSpeler: vi.fn().mockRejectedValue(new Error('conflict')),
+    }
+    render(
+      <OpstellingScreen
+        opstellingService={opstellingService}
+        aanwezigheidService={fakeAanwezigheidService()}
+        spelerService={fakeSpelerService()}
+        wedstrijd={wedstrijd}
+        teamId="team-1"
+        kwart={1}
+      />,
+    )
+    await screen.findByText(/wisselbank \(3\)/i)
+
+    await user.click(screen.getByRole('button', { name: 'Jan Jansen' }))
+    await user.click(screen.getByRole('button', { name: 'Keeper: leeg' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/niet gelukt/i)
+    expect(await screen.findByRole('button', { name: 'Keeper: leeg' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Jan Jansen' })).toBeInTheDocument()
+  })
+
+  it('renders an artificially long spelernaam in a slot without erroring (layout truncation itself is CSS-only, see App.css)', async () => {
+    const langeNaam = 'C'.repeat(200)
+    const langeSpelers: Speler[] = [{ ...spelers[0], naam: langeNaam }]
+    render(
+      <OpstellingScreen
+        opstellingService={createFakeOpstellingService({ 1: { Keeper: spelers[0].id } })}
+        aanwezigheidService={fakeAanwezigheidService()}
+        spelerService={fakeSpelerService({ list: vi.fn().mockResolvedValue(langeSpelers) })}
+        wedstrijd={wedstrijd}
+        teamId="team-1"
+        kwart={1}
+      />,
+    )
+
+    expect(await screen.findByText(langeNaam)).toHaveClass('opstelling-vak-naam')
+  })
+
   it('tapping an empty slot with no bench selection does nothing (no sheet opens)', async () => {
     const user = userEvent.setup()
     const opstellingService = createFakeOpstellingService(GEEN_AUTO_VOORSTEL)
