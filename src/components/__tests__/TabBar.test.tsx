@@ -27,4 +27,12 @@ describe('TabBar', () => {
     expect(screen.getByRole('link', { name: 'Spelers' })).not.toHaveClass('actief')
     expect(screen.getByRole('link', { name: 'Wedstrijden' })).not.toHaveClass('actief')
   })
+
+  it('shows an icon next to each label', () => {
+    renderTabBar(['/spelers'])
+
+    for (const name of ['Spelers', 'Wedstrijden', 'Dashboard']) {
+      expect(screen.getByRole('link', { name }).querySelector('svg')).not.toBeNull()
+    }
+  })
 })
