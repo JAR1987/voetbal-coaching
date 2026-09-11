@@ -404,3 +404,142 @@
   font-size: 0.9rem;
   margin: 0;
 }
+
+/* jt-dvh.14.19: grasgroen veld met maaistrepen + shirt-iconen per vak. */
+.opstelling-veld {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  border-radius: 12px;
+  overflow: hidden;
+  background: repeating-linear-gradient(180deg, #2f8f4e 0 34px, #288048 34px 68px);
+}
+
+.opstelling-vak {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 4.5rem;
+  background: none;
+  border: none;
+  padding: 0.1rem;
+  gap: 0.1rem;
+}
+
+.opstelling-vak.leeg {
+  border: 1px dashed rgba(10, 36, 18, 0.4);
+  border-radius: 6px;
+}
+
+.opstelling-shirt {
+  width: 34px;
+  height: 34px;
+  border-radius: 6px 6px 10px 10px;
+}
+
+.opstelling-shirt--veld {
+  background: repeating-linear-gradient(90deg, #dc2626 0 6px, #111 6px 12px);
+}
+
+.opstelling-shirt--keeper {
+  background: #fde047;
+}
+
+.opstelling-vak-positie {
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #0a2412;
+  opacity: 0.75;
+}
+
+.opstelling-vak-naam {
+  color: #0a2412;
+  font-weight: 700;
+  font-size: 0.8rem;
+}
+
+.opstelling-vak-score {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #0a2412;
+}
+
+.opstelling-wisselbank {
+  width: 100%;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 0.75rem 1rem;
+  margin-top: 1rem;
+  text-align: left;
+}
+
+.opstelling-wisselbank ul {
+  list-style: none;
+  padding: 0;
+  margin: 0.5rem 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.opstelling-wisselbank button {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+  color: var(--color-text);
+  padding: 0.5rem 0.75rem;
+}
+
+.opstelling-wisselbank button[aria-pressed='true'] {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.opstelling-beoordeling-sheet {
+  width: 100%;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 1rem;
+  margin-top: 1rem;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.opstelling-beoordeling-sheet label {
+  font-weight: 600;
+}
+
+.opstelling-beoordeling-sheet textarea {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+  color: var(--color-text);
+  padding: 0.5rem 0.6rem;
+  font-family: inherit;
+}
+
+.opstelling-beoordeling-sheet [role='radiogroup'] button {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  padding: 0.1rem;
+  color: var(--color-accent);
+}
+
+.opstelling-beoordeling-sheet > button {
+  align-self: flex-start;
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+  border: none;
+  border-radius: 0.5rem;
+  padding: 0.5rem 1rem;
+  font-weight: 700;
+}
