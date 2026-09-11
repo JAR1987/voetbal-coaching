@@ -55,10 +55,19 @@ export function AanwezigheidScreen({ aanwezigheidService, spelerService, wedstri
     load()
   }, [load])
 
+  // Zet de rij bij met het antwoord van de service i.p.v. een volledige
+  // `load()` — dat antwoord bevat de bijgewerkte rij al, dus geen
+  // "laden…"-flits per tik (zelfde motief als OpstellingScreen, jt-dvh.14.16).
   async function handleSetStatus(spelerId: string, status: AanwezigheidStatus) {
     try {
-      await aanwezigheidService.setStatus(wedstrijdId, spelerId, status)
-      await load()
+      const bijgewerkt = await aanwezigheidService.setStatus(wedstrijdId, spelerId, status)
+      setRegels((prev) =>
+        prev.map((regel) =>
+          regel.speler.id === spelerId
+            ? { ...regel, status: bijgewerkt.status, fitheidStatus: bijgewerkt.fitheidStatus }
+            : regel,
+        ),
+      )
     } catch {
       setError('Aanwezigheid wijzigen is niet gelukt.')
     }
@@ -66,8 +75,14 @@ export function AanwezigheidScreen({ aanwezigheidService, spelerService, wedstri
 
   async function handleSetFitheid(spelerId: string, fitheidStatus: FitheidStatus) {
     try {
-      await aanwezigheidService.setFitheid(wedstrijdId, spelerId, fitheidStatus)
-      await load()
+      const bijgewerkt = await aanwezigheidService.setFitheid(wedstrijdId, spelerId, fitheidStatus)
+      setRegels((prev) =>
+        prev.map((regel) =>
+          regel.speler.id === spelerId
+            ? { ...regel, status: bijgewerkt.status, fitheidStatus: bijgewerkt.fitheidStatus }
+            : regel,
+        ),
+      )
     } catch {
       setError('Fitheid wijzigen is niet gelukt.')
     }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import type { SpelerService } from '../data/spelerService'
 import type { Speler } from '../data/types'
@@ -48,6 +48,11 @@ export function PlayerListScreen({ spelerService, teamId }: PlayerListScreenProp
   const [editForm, setEditForm] = useState<PlayerFormValues>(emptyForm)
   const [editError, setEditError] = useState<string | null>(null)
 
+  // Op een submit-fout gaat focus hierheen (eerste foutveld) i.p.v. alleen
+  // rode tekst te tonen — alleen het naam-veld is verplicht.
+  const addNaamRef = useRef<HTMLInputElement>(null)
+  const editNaamRef = useRef<HTMLInputElement>(null)
+
   const loadPlayers = useCallback(
     async (includeInactive: boolean) => {
       setLoading(true)
@@ -88,6 +93,7 @@ export function PlayerListScreen({ spelerService, teamId }: PlayerListScreenProp
       await loadPlayers(showInactive)
     } catch {
       setAddError('Speler toevoegen is niet gelukt. Controleer de naam.')
+      addNaamRef.current?.focus()
     } finally {
       setSubmitting(false)
     }
@@ -125,6 +131,7 @@ export function PlayerListScreen({ spelerService, teamId }: PlayerListScreenProp
       await loadPlayers(showInactive)
     } catch {
       setEditError('Wijzigingen opslaan is niet gelukt. Controleer de naam.')
+      editNaamRef.current?.focus()
     }
   }
 
@@ -173,7 +180,10 @@ export function PlayerListScreen({ spelerService, teamId }: PlayerListScreenProp
                   <label htmlFor={`edit-naam-${speler.id}`}>Naam</label>
                   <input
                     id={`edit-naam-${speler.id}`}
+                    name="naam"
+                    autoComplete="off"
                     required
+                    ref={editNaamRef}
                     value={editForm.naam}
                     onChange={(event) => setEditForm({ ...editForm, naam: event.target.value })}
                   />
@@ -181,6 +191,8 @@ export function PlayerListScreen({ spelerService, teamId }: PlayerListScreenProp
                   <label htmlFor={`edit-rugnummer-${speler.id}`}>Rugnummer</label>
                   <input
                     id={`edit-rugnummer-${speler.id}`}
+                    name="rugnummer"
+                    autoComplete="off"
                     type="number"
                     value={editForm.rugnummer}
                     onChange={(event) => setEditForm({ ...editForm, rugnummer: event.target.value })}
@@ -189,6 +201,8 @@ export function PlayerListScreen({ spelerService, teamId }: PlayerListScreenProp
                   <label htmlFor={`edit-opmerkingen-${speler.id}`}>Opmerkingen</label>
                   <textarea
                     id={`edit-opmerkingen-${speler.id}`}
+                    name="opmerkingen"
+                    autoComplete="off"
                     value={editForm.opmerkingen}
                     onChange={(event) => setEditForm({ ...editForm, opmerkingen: event.target.value })}
                   />
@@ -232,7 +246,10 @@ export function PlayerListScreen({ spelerService, teamId }: PlayerListScreenProp
         <label htmlFor="new-naam">Naam</label>
         <input
           id="new-naam"
+          name="naam"
+          autoComplete="off"
           required
+          ref={addNaamRef}
           value={addForm.naam}
           onChange={(event) => setAddForm({ ...addForm, naam: event.target.value })}
         />
@@ -240,6 +257,8 @@ export function PlayerListScreen({ spelerService, teamId }: PlayerListScreenProp
         <label htmlFor="new-rugnummer">Rugnummer</label>
         <input
           id="new-rugnummer"
+          name="rugnummer"
+          autoComplete="off"
           type="number"
           value={addForm.rugnummer}
           onChange={(event) => setAddForm({ ...addForm, rugnummer: event.target.value })}
@@ -248,6 +267,8 @@ export function PlayerListScreen({ spelerService, teamId }: PlayerListScreenProp
         <label htmlFor="new-opmerkingen">Opmerkingen</label>
         <textarea
           id="new-opmerkingen"
+          name="opmerkingen"
+          autoComplete="off"
           value={addForm.opmerkingen}
           onChange={(event) => setAddForm({ ...addForm, opmerkingen: event.target.value })}
         />
