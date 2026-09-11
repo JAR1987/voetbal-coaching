@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link, NavLink, Navigate, Route, Routes } from 'react-router-dom'
+import { ArrowLeft, ClipboardList, LayoutGrid, UserCheck } from 'lucide-react'
 import type { AanwezigheidService } from '../data/aanwezigheidService'
 import type { OpstellingService } from '../data/opstellingService'
 import type { SpelerService } from '../data/spelerService'
@@ -45,20 +46,26 @@ export function MatchDetailScreen({
   return (
     <section className="match-detail-screen" aria-label="Wedstrijddetail">
       <header className="match-detail-header">
-        <Link to="/wedstrijden">&larr; Terug naar wedstrijden</Link>
-        <h3>
+        <Link to="/wedstrijden" className="match-detail-back">
+          <ArrowLeft aria-hidden="true" size={18} />
+          Terug naar wedstrijden
+        </Link>
+        <h3 className="match-detail-title">
           {wedstrijd.datum} — {FORMAAT_LABELS[wedstrijd.formaat]} — {wedstrijd.formatie}
         </h3>
       </header>
 
       <nav className="match-detail-tabs" aria-label="Wedstrijdonderdeel">
         <NavLink to={`${basePath}/opstelling`} className={({ isActive }) => `match-detail-tab${isActive ? ' actief' : ''}`}>
+          <LayoutGrid aria-hidden="true" size={18} />
           Opstelling
         </NavLink>
         <NavLink to={`${basePath}/aanwezigheid`} className={({ isActive }) => `match-detail-tab${isActive ? ' actief' : ''}`}>
+          <UserCheck aria-hidden="true" size={18} />
           Aanwezigheid
         </NavLink>
         <NavLink to={`${basePath}/gegevens`} className={({ isActive }) => `match-detail-tab${isActive ? ' actief' : ''}`}>
+          <ClipboardList aria-hidden="true" size={18} />
           Gegevens
         </NavLink>
       </nav>

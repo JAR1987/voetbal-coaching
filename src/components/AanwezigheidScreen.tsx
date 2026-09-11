@@ -105,22 +105,24 @@ export function AanwezigheidScreen({ aanwezigheidService, spelerService, wedstri
       ) : (
         <ul className="aanwezigheid-list">
           {regels.map(({ speler, status, fitheidStatus }) => (
-            <li key={speler.id} data-status={status}>
-              <span className="speler-naam">{speler.naam}</span>
-              <span className="aanwezigheid-status">{status === 'aanwezig' ? 'Aanwezig' : 'Afgemeld'}</span>
+            <li key={speler.id} data-status={status} className="aanwezigheid-kaart">
+              <div className="aanwezigheid-kaart-rij">
+                <span className="speler-naam">{speler.naam}</span>
+                <span className="aanwezigheid-status">{status === 'aanwezig' ? 'Aanwezig' : 'Afgemeld'}</span>
+              </div>
 
               {status === 'aanwezig' ? (
-                <button type="button" onClick={() => handleSetStatus(speler.id, 'afgemeld')}>
+                <button type="button" className="aanwezigheid-actie-knop" onClick={() => handleSetStatus(speler.id, 'afgemeld')}>
                   Afmelden
                 </button>
               ) : (
-                <button type="button" onClick={() => handleSetStatus(speler.id, 'aanwezig')}>
+                <button type="button" className="aanwezigheid-actie-knop" onClick={() => handleSetStatus(speler.id, 'aanwezig')}>
                   Aanwezig melden
                 </button>
               )}
 
               {status === 'aanwezig' && (
-                <>
+                <div className="aanwezigheid-fitheid">
                   <label htmlFor={`fitheid-${speler.id}`}>Fitheid voor {speler.naam}</label>
                   <select
                     id={`fitheid-${speler.id}`}
@@ -139,7 +141,7 @@ export function AanwezigheidScreen({ aanwezigheidService, spelerService, wedstri
                       </option>
                     ))}
                   </select>
-                </>
+                </div>
               )}
             </li>
           ))}
