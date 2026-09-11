@@ -1,3 +1,4 @@
+import { BarChart3 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { SeizoenService } from '../data/seizoenService'
 import type { SpelerService } from '../data/spelerService'
@@ -85,29 +86,38 @@ export function DashboardScreen({ seizoenService, spelerService, statistiekenSer
 
   return (
     <section className="dashboard-screen">
-      <h1>Dashboard</h1>
+      <header className="dashboard-screen-header">
+        <BarChart3 aria-hidden="true" size={22} />
+        <h1>Dashboard</h1>
+      </header>
 
-      {error && <p role="alert">{error}</p>}
+      {error && (
+        <p role="alert" className="dashboard-error">
+          {error}
+        </p>
+      )}
 
       {loading ? (
-        <p>Dashboard laden…</p>
+        <p className="dashboard-melding">Dashboard laden…</p>
       ) : seizoenen.length === 0 ? (
-        <p>Nog geen seizoen aangemaakt.</p>
+        <p className="dashboard-melding">Nog geen seizoen aangemaakt.</p>
       ) : (
         <>
-          <label htmlFor="dashboard-seizoen">Seizoen</label>
-          <select id="dashboard-seizoen" value={seizoenId ?? ''} onChange={(event) => setSeizoenId(event.target.value)}>
-            {seizoenenAflopend.map((seizoen) => (
-              <option key={seizoen.id} value={seizoen.id}>
-                {seizoen.naam}
-              </option>
-            ))}
-          </select>
+          <div className="dashboard-seizoen-switcher">
+            <label htmlFor="dashboard-seizoen">Seizoen</label>
+            <select id="dashboard-seizoen" value={seizoenId ?? ''} onChange={(event) => setSeizoenId(event.target.value)}>
+              {seizoenenAflopend.map((seizoen) => (
+                <option key={seizoen.id} value={seizoen.id}>
+                  {seizoen.naam}
+                </option>
+              ))}
+            </select>
+          </div>
 
           {spelers.length === 0 ? (
-            <p>Nog geen actieve spelers.</p>
+            <p className="dashboard-melding">Nog geen actieve spelers.</p>
           ) : statsLoading || !resultaat ? (
-            <p>Statistieken laden…</p>
+            <p className="dashboard-melding">Statistieken laden…</p>
           ) : (
             <>
               <TeamOverzichtSectie resultaat={resultaat} spelers={spelers} />
@@ -124,10 +134,10 @@ function TeamOverzichtSectie({ resultaat, spelers }: { resultaat: SeizoenStatist
   const naamPerSpeler = new Map(spelers.map((speler) => [speler.id, speler.naam]))
 
   return (
-    <section aria-labelledby="team-overzicht-titel">
+    <section className="dashboard-card team-overzicht-card" aria-labelledby="team-overzicht-titel">
       <h2 id="team-overzicht-titel">Team-overzicht — speeltijd-eerlijkheid</h2>
-      <p>Gemiddelde speeltijd: {formatGetal(resultaat.teamOverzicht.gemiddeldeSpeeltijd)} kwarten</p>
-      <table>
+      <p className="dashboard-card-subtitel">Gemiddelde speeltijd: {formatGetal(resultaat.teamOverzicht.gemiddeldeSpeeltijd)} kwarten</p>
+      <table className="team-overzicht-tabel">
         <thead>
           <tr>
             <th scope="col">Speler</th>
@@ -153,14 +163,14 @@ function TeamOverzichtSectie({ resultaat, spelers }: { resultaat: SeizoenStatist
 
 function SpelerProfielen({ resultaat, spelers }: { resultaat: SeizoenStatistieken; spelers: Speler[] }) {
   return (
-    <section aria-label="Spelerprofielen">
+    <section className="speler-profielen" aria-label="Spelerprofielen">
       {spelers.map((speler) => {
         const stats = resultaat.perSpeler[speler.id]
         const posities = Object.entries(stats?.gemiddeldeScorePerPositie ?? {})
         return (
-          <article key={speler.id} aria-labelledby={`profiel-${speler.id}`}>
+          <article key={speler.id} className="dashboard-card speler-profiel-card" aria-labelledby={`profiel-${speler.id}`}>
             <h3 id={`profiel-${speler.id}`}>{speler.naam}</h3>
-            <dl>
+            <dl className="speler-profiel-stats">
               <dt>Totale speeltijd</dt>
               <dd>{stats?.totaleSpeeltijd ?? 0} kwarten</dd>
               <dt>Aantal keer wissel</dt>
@@ -173,7 +183,7 @@ function SpelerProfielen({ resultaat, spelers }: { resultaat: SeizoenStatistieke
             {posities.length > 0 && (
               <>
                 <h4>Gemiddelde score per positie</h4>
-                <ul>
+                <ul className="speler-profiel-posities">
                   {posities.map(([positie, gemiddelde]) => (
                     <li key={positie}>
                       {positie}: {formatGetal(gemiddelde)}
@@ -182,7 +192,7 @@ function SpelerProfielen({ resultaat, spelers }: { resultaat: SeizoenStatistieke
                 </ul>
               </>
             )}
-            {speler.opmerkingen && <p>Opmerkingen: {speler.opmerkingen}</p>}
+            {speler.opmerkingen && <p className="speler-profiel-opmerkingen">Opmerkingen: {speler.opmerkingen}</p>}
           </article>
         )
       })}
