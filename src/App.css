@@ -155,10 +155,14 @@
 }
 
 .match-detail-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
   padding: 0.5rem 0.75rem;
   text-decoration: none;
-  color: var(--color-text);
-  font-weight: 600;
+  color: var(--color-text-muted);
+  font-weight: 700;
+  font-size: 0.9rem;
 }
 
 .match-detail-tab.actief {
@@ -282,4 +286,158 @@
   background: var(--color-accent);
   color: var(--color-accent-contrast);
   font-size: 0.85rem;
+}
+
+.match-detail-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  align-self: flex-start;
+  color: var(--color-text-muted);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.match-detail-title {
+  margin: 0;
+  color: var(--color-text);
+}
+
+.aanwezigheid-list {
+  list-style: none;
+  padding: 0;
+  margin: 0.5rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.aanwezigheid-kaart {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.75rem;
+  background: var(--color-surface);
+  padding: 0.75rem 1rem;
+}
+
+.aanwezigheid-kaart-rij {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.speler-naam {
+  font-weight: 700;
+}
+
+.aanwezigheid-status {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--color-text-muted);
+}
+
+.aanwezigheid-kaart[data-status='aanwezig'] .aanwezigheid-status {
+  color: var(--color-accent);
+}
+
+.aanwezigheid-actie-knop {
+  padding: 0.4rem 0.9rem;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--color-text);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.aanwezigheid-fitheid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  width: 100%;
+}
+
+.aanwezigheid-fitheid label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.aanwezigheid-fitheid select {
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+  font-size: 1rem;
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.aanwezigheid-error {
+  background: var(--color-error-bg);
+  color: var(--color-error-text);
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.wedstrijd-gegevens-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  max-width: 24rem;
+}
+
+.wedstrijd-gegevens-form label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.wedstrijd-gegevens-form input,
+.wedstrijd-gegevens-form select {
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+  font-size: 1rem;
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.wedstrijd-gegevens-form button {
+  margin-top: 0.5rem;
+  padding: 0.7rem 1rem;
+  border: none;
+  border-radius: 0.5rem;
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.wedstrijd-gegevens-form button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.wedstrijd-gegevens-error {
+  background: var(--color-error-bg);
+  color: var(--color-error-text);
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.wedstrijd-gegevens-saved {
+  color: var(--color-accent);
+  font-weight: 600;
+  font-size: 0.9rem;
+  margin: 0;
 }
