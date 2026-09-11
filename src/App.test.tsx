@@ -54,6 +54,7 @@ function fakeWedstrijdService(overrides: Partial<WedstrijdService> = {}): Wedstr
     list: vi.fn().mockResolvedValue([]),
     create: vi.fn(),
     updateKwartDuur: vi.fn(),
+    updateWedstrijdgegevens: vi.fn(),
     ...overrides,
   }
 }

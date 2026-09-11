@@ -10,6 +10,7 @@ import { AanwezigheidScreen } from './AanwezigheidScreen'
 import { DeelOpstellingKnop } from './DeelOpstellingKnop'
 import { KwartTimer } from './KwartTimer'
 import { OpstellingScreen } from './OpstellingScreen'
+import { WedstrijdGegevensScreen } from './WedstrijdGegevensScreen'
 
 const KWARTEN = [1, 2, 3, 4] as const
 
@@ -20,18 +21,13 @@ interface MatchDetailScreenProps {
   aanwezigheidService: AanwezigheidService
   opstellingService: OpstellingService
   wedstrijdService: WedstrijdService
+  /** Bubbles a saved Gegevens-tab edit up to WedstrijdScreen's list, see `WedstrijdGegevensScreen`. */
+  onWedstrijdUpdated: (wedstrijd: Wedstrijd) => void
 }
 
-/**
- * Detail view for one match, reached via `/wedstrijden/:wedstrijdId` (see
- * `WedstrijdScreen`'s nested routes for the id-lookup). Owns the header and
- * the Opstelling/Aanwezigheid sub-tab bar; Opstelling is the default/landing
- * sub-tab (bare `/wedstrijden/:id` redirects to it below).
- *
- * A future section (e.g. "Wedstrijdgegevens vastleggen") becomes its own
- * sub-route + tab here, not another sibling pasted into one return block —
- * add a `<Route path="gegevens" element={...} />` and a matching tab.
- */
+/** Detail view for one match, reached via `/wedstrijden/:wedstrijdId` (see
+ * `WedstrijdScreen`'s nested routes). Owns the header and the
+ * Opstelling/Aanwezigheid/Gegevens sub-tab bar; Opstelling is the default. */
 export function MatchDetailScreen({
   wedstrijd,
   teamId,
@@ -39,6 +35,7 @@ export function MatchDetailScreen({
   aanwezigheidService,
   opstellingService,
   wedstrijdService,
+  onWedstrijdUpdated,
 }: MatchDetailScreenProps) {
   // Absolute, not relative: this mounts several splat-routes deep, where
   // relative-link resolution compounds per nested `<Routes>` instead of
@@ -60,6 +57,9 @@ export function MatchDetailScreen({
         </NavLink>
         <NavLink to={`${basePath}/aanwezigheid`} className={({ isActive }) => `match-detail-tab${isActive ? ' actief' : ''}`}>
           Aanwezigheid
+        </NavLink>
+        <NavLink to={`${basePath}/gegevens`} className={({ isActive }) => `match-detail-tab${isActive ? ' actief' : ''}`}>
+          Gegevens
         </NavLink>
       </nav>
 
@@ -87,6 +87,12 @@ export function MatchDetailScreen({
               wedstrijdId={wedstrijd.id}
               teamId={teamId}
             />
+          }
+        />
+        <Route
+          path="gegevens"
+          element={
+            <WedstrijdGegevensScreen wedstrijd={wedstrijd} wedstrijdService={wedstrijdService} onWedstrijdUpdated={onWedstrijdUpdated} />
           }
         />
       </Routes>

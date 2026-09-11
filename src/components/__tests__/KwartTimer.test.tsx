@@ -23,6 +23,7 @@ function fakeWedstrijdService(overrides: Partial<WedstrijdService> = {}): Wedstr
     list: vi.fn(),
     create: vi.fn(),
     updateKwartDuur: vi.fn(async (_wedstrijdId: string, seconden: number) => ({ ...wedstrijd, kwartDuurSeconden: seconden })),
+    updateWedstrijdgegevens: vi.fn(),
     ...overrides,
   }
 }

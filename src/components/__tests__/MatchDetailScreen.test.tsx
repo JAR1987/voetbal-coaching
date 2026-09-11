@@ -42,6 +42,7 @@ function fakeWedstrijdService(): WedstrijdService {
     list: vi.fn().mockResolvedValue([wedstrijd]),
     create: vi.fn(),
     updateKwartDuur: vi.fn().mockResolvedValue(wedstrijd),
+    updateWedstrijdgegevens: vi.fn().mockResolvedValue(wedstrijd),
   }
 }
 
@@ -87,6 +88,7 @@ function renderMatchDetailScreen({ initialEntries = ['/wedstrijden/w1'] }: Rende
               aanwezigheidService={fakeAanwezigheidService()}
               opstellingService={fakeOpstellingService()}
               wedstrijdService={fakeWedstrijdService()}
+              onWedstrijdUpdated={vi.fn()}
             />
           }
         />
@@ -122,6 +124,20 @@ describe('MatchDetailScreen — sub-tab navigation', () => {
 
     await user.click(screen.getByRole('link', { name: 'Opstelling' }))
     expect(await screen.findByRole('tab', { name: 'K1' })).toHaveAttribute('aria-selected', 'true')
+  })
+})
+
+describe('MatchDetailScreen — Gegevens sub-tab (jt-dvh.14.10)', () => {
+  it('switches to the Gegevens sub-tab and shows the wedstrijdgegevens form', async () => {
+    const user = userEvent.setup()
+    renderMatchDetailScreen()
+    await screen.findByRole('tab', { name: 'K1' })
+
+    await user.click(screen.getByRole('link', { name: 'Gegevens' }))
+
+    expect(await screen.findByLabelText('Tegenstander')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Gegevens' })).toHaveClass('actief')
+    expect(screen.queryByRole('tab', { name: 'K1' })).not.toBeInTheDocument()
   })
 })
 

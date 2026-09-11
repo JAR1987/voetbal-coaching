@@ -51,6 +51,13 @@ export function WedstrijdScreen({ wedstrijdService, spelerService, aanwezigheidS
     loadWedstrijden()
   }, [loadWedstrijden])
 
+  // A saved Gegevens-tab edit patches the already-loaded row in place
+  // instead of a full refetch — the match-detail screen stays mounted
+  // (nested route), so nothing else would trigger a reload of the list.
+  const handleWedstrijdUpdated = useCallback((updated: Wedstrijd) => {
+    setWedstrijden((prev) => prev.map((wedstrijd) => (wedstrijd.id === updated.id ? updated : wedstrijd)))
+  }, [])
+
   return (
     <Routes>
       <Route index element={<WedstrijdLijst wedstrijden={wedstrijden} loading={loading} error={error} />} />
@@ -69,11 +76,29 @@ export function WedstrijdScreen({ wedstrijdService, spelerService, aanwezigheidS
             aanwezigheidService={aanwezigheidService}
             opstellingService={opstellingService}
             wedstrijdService={wedstrijdService}
+            onWedstrijdUpdated={handleWedstrijdUpdated}
           />
         }
       />
     </Routes>
   )
+}
+
+/** Compact " — vs X, thuis, 3-1"-style suffix for whichever of
+ * tegenstander/thuisUit/score are filled in — empty string when none are,
+ * so the list item shows nothing extra (none of these fields are required). */
+function formatWedstrijdExtra(wedstrijd: Wedstrijd): string {
+  const details: string[] = []
+  if (wedstrijd.tegenstander) {
+    details.push(`vs ${wedstrijd.tegenstander}`)
+  }
+  if (wedstrijd.thuisUit) {
+    details.push(wedstrijd.thuisUit)
+  }
+  if (wedstrijd.eigenScore !== null || wedstrijd.tegenScore !== null) {
+    details.push(`${wedstrijd.eigenScore ?? '?'}-${wedstrijd.tegenScore ?? '?'}`)
+  }
+  return details.length > 0 ? ` — ${details.join(', ')}` : ''
 }
 
 interface WedstrijdLijstProps {
@@ -109,6 +134,7 @@ function WedstrijdLijst({ wedstrijden, loading, error }: WedstrijdLijstProps) {
             <li key={wedstrijd.id}>
               <Link to={`/wedstrijden/${wedstrijd.id}`} className="wedstrijd-list-item">
                 {wedstrijd.datum} — {FORMAAT_LABELS[wedstrijd.formaat]} — {wedstrijd.formatie}
+                {formatWedstrijdExtra(wedstrijd)}
               </Link>
             </li>
           ))}
@@ -126,6 +152,7 @@ interface WedstrijdDetailRouteProps {
   aanwezigheidService: AanwezigheidService
   opstellingService: OpstellingService
   wedstrijdService: WedstrijdService
+  onWedstrijdUpdated: (wedstrijd: Wedstrijd) => void
 }
 
 /** Zoekt de wedstrijd bij `:wedstrijdId` op in de al opgehaalde lijst en toont `MatchDetailScreen` ervoor — terug naar de lijst als hij (nog) niet bestaat. */
@@ -137,6 +164,7 @@ function WedstrijdDetailRoute({
   aanwezigheidService,
   opstellingService,
   wedstrijdService,
+  onWedstrijdUpdated,
 }: WedstrijdDetailRouteProps) {
   const { wedstrijdId } = useParams<{ wedstrijdId: string }>()
   const wedstrijd = wedstrijden.find((item) => item.id === wedstrijdId) ?? null
@@ -156,6 +184,7 @@ function WedstrijdDetailRoute({
       aanwezigheidService={aanwezigheidService}
       opstellingService={opstellingService}
       wedstrijdService={wedstrijdService}
+      onWedstrijdUpdated={onWedstrijdUpdated}
     />
   )
 }

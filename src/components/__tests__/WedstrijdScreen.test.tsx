@@ -43,6 +43,7 @@ function createFakeWedstrijdService(): WedstrijdService {
       return wedstrijd
     }),
     updateKwartDuur: vi.fn(),
+    updateWedstrijdgegevens: vi.fn(),
   }
 }
 
@@ -207,6 +208,58 @@ describe('WedstrijdScreen — new match (/wedstrijden/nieuw)', () => {
   })
 })
 
+describe('WedstrijdScreen — list toont wedstrijdgegevens indien ingevuld (jt-dvh.14.10)', () => {
+  const zonderGegevens: Wedstrijd = {
+    id: 'w1',
+    seizoenId: 'seizoen-1',
+    datum: '2026-09-20',
+    formaat: '8v8',
+    formatie: '1-3-3-1',
+    tegenstander: null,
+    eigenScore: null,
+    tegenScore: null,
+    thuisUit: null,
+    kwartDuurSeconden: 1200,
+    createdAt: '2026-01-01T00:00:00Z',
+  }
+
+  it('toont niets extra wanneer tegenstander/uitslag nog niet zijn ingevuld', async () => {
+    renderWedstrijdScreen({
+      wedstrijdService: {
+        list: vi.fn().mockResolvedValue([zonderGegevens]),
+        create: vi.fn(),
+        updateKwartDuur: vi.fn(),
+        updateWedstrijdgegevens: vi.fn(),
+      },
+    })
+
+    expect(await screen.findByRole('link', { name: '2026-09-20 — 8-tegen-8 — 1-3-3-1' })).toBeInTheDocument()
+  })
+
+  it('toont tegenstander, thuis/uit en uitslag wanneer ingevuld', async () => {
+    const gevuld: Wedstrijd = {
+      ...zonderGegevens,
+      id: 'w2',
+      tegenstander: 'FC Voorbeeld',
+      eigenScore: 3,
+      tegenScore: 1,
+      thuisUit: 'thuis',
+    }
+    renderWedstrijdScreen({
+      wedstrijdService: {
+        list: vi.fn().mockResolvedValue([gevuld]),
+        create: vi.fn(),
+        updateKwartDuur: vi.fn(),
+        updateWedstrijdgegevens: vi.fn(),
+      },
+    })
+
+    expect(
+      await screen.findByRole('link', { name: '2026-09-20 — 8-tegen-8 — 1-3-3-1 — vs FC Voorbeeld, thuis, 3-1' }),
+    ).toBeInTheDocument()
+  })
+})
+
 describe('WedstrijdScreen — selecting a match', () => {
   const spelers: Speler[] = [
     {
@@ -249,6 +302,7 @@ describe('WedstrijdScreen — selecting a match', () => {
       list: vi.fn().mockResolvedValue([bestaandeWedstrijd]),
       create: vi.fn(),
       updateKwartDuur: vi.fn(),
+      updateWedstrijdgegevens: vi.fn(),
     }
     renderWedstrijdScreen({
       wedstrijdService,
@@ -274,6 +328,7 @@ describe('WedstrijdScreen — selecting a match', () => {
       list: vi.fn().mockResolvedValue([bestaandeWedstrijd]),
       create: vi.fn(),
       updateKwartDuur: vi.fn(),
+      updateWedstrijdgegevens: vi.fn(),
     }
 
     // A small in-memory fake, like the other component tests use — real
