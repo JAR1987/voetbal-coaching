@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
+import { Users } from 'lucide-react'
 import type { SpelerService } from '../data/spelerService'
 import type { Speler } from '../data/types'
 
@@ -146,7 +147,10 @@ export function PlayerListScreen({ spelerService, teamId }: PlayerListScreenProp
 
   return (
     <section className="player-list-screen">
-      <h2>Spelers</h2>
+      <h2>
+        <Users aria-hidden="true" size={20} />
+        Spelers
+      </h2>
 
       <label className="show-inactive-toggle">
         <input
@@ -209,7 +213,9 @@ export function PlayerListScreen({ spelerService, teamId }: PlayerListScreenProp
 
                   {editError && <p role="alert">{editError}</p>}
 
-                  <button type="submit">Opslaan</button>
+                  <button type="submit" className="btn-primary">
+                    Opslaan
+                  </button>
                   <button type="button" onClick={cancelEditing}>
                     Annuleren
                   </button>
@@ -222,18 +228,20 @@ export function PlayerListScreen({ spelerService, teamId }: PlayerListScreenProp
                     {speler.status === 'inactief' ? ' — inactief' : ''}
                   </span>
                   {speler.opmerkingen && <p className="player-notes">{speler.opmerkingen}</p>}
-                  <button type="button" onClick={() => startEditing(speler)}>
-                    Bewerken
-                  </button>
-                  {speler.status === 'actief' ? (
-                    <button type="button" onClick={() => handleSetStatus(speler.id, 'inactief')}>
-                      Zet inactief
+                  <div className="player-actions">
+                    <button type="button" onClick={() => startEditing(speler)}>
+                      Bewerken
                     </button>
-                  ) : (
-                    <button type="button" onClick={() => handleSetStatus(speler.id, 'actief')}>
-                      Zet actief
-                    </button>
-                  )}
+                    {speler.status === 'actief' ? (
+                      <button type="button" onClick={() => handleSetStatus(speler.id, 'inactief')}>
+                        Zet inactief
+                      </button>
+                    ) : (
+                      <button type="button" onClick={() => handleSetStatus(speler.id, 'actief')}>
+                        Zet actief
+                      </button>
+                    )}
+                  </div>
                 </>
               )}
             </li>
@@ -279,7 +287,7 @@ export function PlayerListScreen({ spelerService, teamId }: PlayerListScreenProp
           </p>
         )}
 
-        <button type="submit" disabled={submitting}>
+        <button type="submit" className="btn-primary" disabled={submitting}>
           {submitting ? 'Bezig met toevoegen…' : 'Speler toevoegen'}
         </button>
       </form>

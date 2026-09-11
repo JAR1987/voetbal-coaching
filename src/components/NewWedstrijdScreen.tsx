@@ -101,7 +101,7 @@ export function NewWedstrijdScreen({ wedstrijdService, teamId, onCreated }: NewW
           </p>
         )}
 
-        <button type="submit" disabled={submitting}>
+        <button type="submit" className="btn-primary" disabled={submitting}>
           {submitting ? 'Bezig met aanmaken…' : 'Wedstrijd aanmaken'}
         </button>
       </form>

@@ -125,6 +125,12 @@
   width: 100%;
 }
 
+.wedstrijd-screen-header h2 {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
 .wedstrijd-nieuw-knop {
   display: inline-flex;
   align-items: center;
@@ -171,6 +177,12 @@
   text-align: left;
 }
 
+.player-list-screen h2 {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
 .player-list {
   list-style: none;
   padding: 0;
@@ -181,9 +193,13 @@
 }
 
 .player-list li {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
   border: 1px solid var(--color-border);
-  border-radius: 0.5rem;
-  padding: 0.6rem 0.75rem;
+  border-radius: 0.75rem;
+  background: var(--color-surface);
+  padding: 1rem;
 }
 
 .player-list li[data-status='inactief'] {
@@ -197,9 +213,19 @@
   word-break: break-word;
 }
 
+.player-name {
+  font-weight: 700;
+}
+
 .player-notes {
   margin: 0.25rem 0;
   font-size: 0.9rem;
+  color: var(--color-text-muted);
+}
+
+.player-actions {
+  display: flex;
+  gap: 0.5rem;
 }
 
 .show-inactive-toggle {
@@ -232,8 +258,20 @@
   border: 1px solid var(--color-border);
   border-radius: 0.5rem;
   font-size: 1rem;
-  background: var(--color-bg);
   color: var(--color-text);
+}
+
+.add-player-form input,
+.add-player-form textarea {
+  background: var(--color-surface);
+}
+
+.edit-player-form input,
+.edit-player-form textarea {
+  /* Nested inside a .player-list li card (also --color-surface) — a
+     darker fill reads as an inset field instead of blending into the
+     card behind it. */
+  background: var(--color-bg);
 }
 
 .player-list-error,
@@ -244,6 +282,21 @@
   border-radius: 0.5rem;
   font-size: 0.9rem;
   margin: 0;
+}
+
+.btn-primary {
+  padding: 0.7rem 1rem;
+  border: none;
+  border-radius: 0.5rem;
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 /* see jt-dvh.14.15 */
@@ -282,4 +335,72 @@
   background: var(--color-accent);
   color: var(--color-accent-contrast);
   font-size: 0.85rem;
+}
+
+.wedstrijd-list {
+  list-style: none;
+  padding: 0;
+  margin: 0.5rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.wedstrijd-list li {
+  border: 1px solid var(--color-border);
+  border-radius: 0.75rem;
+  background: var(--color-surface);
+}
+
+.wedstrijd-list-item {
+  display: block;
+  padding: 1rem;
+  text-decoration: none;
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.wedstrijd-list-error {
+  background: var(--color-error-bg);
+  color: var(--color-error-text);
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.new-wedstrijd-screen {
+  width: 100%;
+  text-align: left;
+}
+
+.add-wedstrijd-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  max-width: 24rem;
+}
+
+.add-wedstrijd-form label {
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.add-wedstrijd-form input,
+.add-wedstrijd-form select {
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+  font-size: 1rem;
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.add-wedstrijd-error {
+  background: var(--color-error-bg);
+  color: var(--color-error-text);
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  font-size: 0.9rem;
+  margin: 0;
 }
