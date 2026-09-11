@@ -48,6 +48,16 @@ export interface NewWedstrijdInput {
   thuisUit?: ThuisUit | null
 }
 
+/** The four optional match-info fields, always sent together — the
+ * Gegevens form edits them as one unit, fillable at any time after
+ * creation (see `WedstrijdService.updateWedstrijdgegevens`). */
+export interface WedstrijdgegevensInput {
+  tegenstander: string | null
+  eigenScore: number | null
+  tegenScore: number | null
+  thuisUit: ThuisUit | null
+}
+
 export interface WedstrijdService {
   /** The given team's matches, most recent first. Rejects if there is no active session. */
   list(teamId: string): Promise<Wedstrijd[]>
@@ -57,6 +67,10 @@ export interface WedstrijdService {
   create(input: NewWedstrijdInput): Promise<Wedstrijd>
   /** Updates this match's default kwart duration (seconds). Rejects if there is no active session. */
   updateKwartDuur(wedstrijdId: string, seconden: number): Promise<Wedstrijd>
+  /** Updates the optional match-info fields (tegenstander, thuis/uit,
+   * score) — fillable at any time, not just at creation. Rejects if
+   * there is no active session. */
+  updateWedstrijdgegevens(wedstrijdId: string, gegevens: WedstrijdgegevensInput): Promise<Wedstrijd>
 }
 
 /** Reads/writes the `wedstrijd` table. No `team_id` of its own (belongs to a
@@ -148,6 +162,35 @@ export function createWedstrijdService(
       const { data, error } = await client
         .from('wedstrijd')
         .update({ kwart_duur_seconden: Math.round(seconden) })
+        .eq('id', wedstrijdId)
+        .select()
+        .single()
+      if (error) {
+        throw error
+      }
+      return toWedstrijd(data)
+    },
+
+    async updateWedstrijdgegevens(wedstrijdId, gegevens) {
+      const session = await auth.getSession()
+      if (!session) {
+        throw new Error('Niet ingelogd: kan wedstrijdgegevens niet wijzigen.')
+      }
+
+      for (const score of [gegevens.eigenScore, gegevens.tegenScore]) {
+        if (score !== null && (!Number.isFinite(score) || score < 0)) {
+          throw new Error('Score moet een niet-negatief getal zijn.')
+        }
+      }
+
+      const { data, error } = await client
+        .from('wedstrijd')
+        .update({
+          tegenstander: gegevens.tegenstander,
+          eigen_score: gegevens.eigenScore,
+          tegen_score: gegevens.tegenScore,
+          thuis_uit: gegevens.thuisUit,
+        })
         .eq('id', wedstrijdId)
         .select()
         .single()
