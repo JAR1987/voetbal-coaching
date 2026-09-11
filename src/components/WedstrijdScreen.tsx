@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, Navigate, Route, Routes, useParams } from 'react-router-dom'
+import { Goal } from 'lucide-react'
 import type { SpelerService } from '../data/spelerService'
 import type { AanwezigheidService } from '../data/aanwezigheidService'
 import type { OpstellingService } from '../data/opstellingService'
@@ -112,7 +113,10 @@ function WedstrijdLijst({ wedstrijden, loading, error }: WedstrijdLijstProps) {
   return (
     <section className="wedstrijd-screen">
       <header className="wedstrijd-screen-header">
-        <h2>Wedstrijden</h2>
+        <h2>
+          <Goal aria-hidden="true" size={20} />
+          Wedstrijden
+        </h2>
         <Link to="/wedstrijden/nieuw" className="wedstrijd-nieuw-knop" aria-label="Nieuwe wedstrijd">
           +
         </Link>
