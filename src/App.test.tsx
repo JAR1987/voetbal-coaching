@@ -5,9 +5,11 @@ import type { Session } from '@supabase/supabase-js'
 import type { AuthService } from './data/authService'
 import type { TeamService } from './data/teamService'
 import type { SpelerService } from './data/spelerService'
+import type { SeizoenService } from './data/seizoenService'
 import type { WedstrijdService } from './data/wedstrijdService'
 import type { AanwezigheidService } from './data/aanwezigheidService'
 import type { OpstellingService } from './data/opstellingService'
+import type { StatistiekenService } from './data/statistiekenService'
 import { App } from './App'
 
 function fakeAuthService(overrides: Partial<AuthService> = {}): AuthService {
@@ -42,6 +44,17 @@ function fakeSpelerService(overrides: Partial<SpelerService> = {}): SpelerServic
     create: vi.fn(),
     update: vi.fn(),
     setStatus: vi.fn(),
+    ...overrides,
+  }
+}
+
+// Only needs to satisfy DashboardScreen's mount-time list() call for these
+// App-level tests — seizoenService has its own dedicated tests
+// (src/data/__tests__/seizoenService.test.ts).
+function fakeSeizoenService(overrides: Partial<SeizoenService> = {}): SeizoenService {
+  return {
+    list: vi.fn().mockResolvedValue([]),
+    getOrCreateSeasonForDate: vi.fn(),
     ...overrides,
   }
 }
@@ -85,15 +98,27 @@ function fakeOpstellingService(overrides: Partial<OpstellingService> = {}): Opst
   }
 }
 
+// Only needs to satisfy DashboardScreen's mount-time wiring for these
+// App-level tests — statistiekenService has its own dedicated tests
+// (src/data/__tests__/statistiekenService.test.ts).
+function fakeStatistiekenService(overrides: Partial<StatistiekenService> = {}): StatistiekenService {
+  return {
+    berekenVoorSeizoen: vi.fn().mockResolvedValue({ perSpeler: {}, teamOverzicht: { gemiddeldeSpeeltijd: 0, regels: [] } }),
+    ...overrides,
+  }
+}
+
 function renderApp(overrides: Partial<Parameters<typeof App>[0]> = {}) {
   return render(
     <App
       authService={fakeAuthService()}
       teamService={fakeTeamService()}
       spelerService={fakeSpelerService()}
+      seizoenService={fakeSeizoenService()}
       wedstrijdService={fakeWedstrijdService()}
       aanwezigheidService={fakeAanwezigheidService()}
       opstellingService={fakeOpstellingService()}
+      statistiekenService={fakeStatistiekenService()}
       {...overrides}
     />,
   )

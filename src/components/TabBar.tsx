@@ -13,6 +13,9 @@ export function TabBar() {
       <NavLink to="/wedstrijden" className={({ isActive }) => `tab-bar-item${isActive ? ' actief' : ''}`}>
         Wedstrijden
       </NavLink>
+      <NavLink to="/dashboard" className={({ isActive }) => `tab-bar-item${isActive ? ' actief' : ''}`}>
+        Dashboard
+      </NavLink>
     </nav>
   )
 }
