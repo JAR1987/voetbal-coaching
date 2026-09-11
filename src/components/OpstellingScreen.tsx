@@ -333,6 +333,9 @@ export function OpstellingScreen({ opstellingService, aanwezigheidService, spele
             {slots.map((slot) => {
               const speler = vindSpeler(opstelling[slot.naam])
               const score = beoordelingen[slot.naam]?.score
+              // Shirt-kleur volgt de positienaam: "Keeper" is de enige
+              // positie die in elke formatie geel i.p.v. rood-zwart krijgt.
+              const isKeeper = slot.naam === 'Keeper'
               return (
                 <button
                   key={slot.id}
@@ -344,6 +347,12 @@ export function OpstellingScreen({ opstellingService, aanwezigheidService, spele
                   onPointerDown={(event) => speler && handleDragPointerDown(event, speler.id)}
                   onClick={() => handleSlotTap(slot.naam)}
                 >
+                  {speler && (
+                    <span
+                      className={`opstelling-shirt${isKeeper ? ' opstelling-shirt--keeper' : ' opstelling-shirt--veld'}`}
+                      aria-hidden="true"
+                    />
+                  )}
                   <span className="opstelling-vak-positie">{slot.naam}</span>
                   <span className="opstelling-vak-naam">{speler ? speler.naam : '—'}</span>
                   {score ? <span className="opstelling-vak-score">★{score}</span> : null}
